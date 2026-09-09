@@ -11,7 +11,7 @@
   → Security-Scoped Bookmark
   → VideoSource（AVFoundation 或 FFmpeg+VT）
   → CVPixelBuffer @ 源分辨率
-  → FrameInterpolator（可关；VTLowLatency，macOS 26）
+  → FrameInterpolator（可关；快=VT 低延迟 / 高质量=自维护 IFRNet-S，皆源分辨率 2×）
   → FrameUpscaler（Anime4K Metal）
   → libass 按显示分辨率叠加
   → CAMetalLayer
@@ -26,7 +26,8 @@
 | --- | --- | --- |
 | `ScopedBookmarkStore` | 把用户选中的 URL 变成可续播书签 | 读失败当新打开，不扫盘 |
 | `VideoSource` | 产出带 PTS 的帧 | 不支持则抛错，UI 弹窗 |
-| `PlaybackPipeline` | 插帧 → 超分的唯一编排 | 处理器失败则跳过该增强并 OSD |
+| `InterpolationRuntime` | 流畅档盒子与过载梯子（高质量→快→关） | 当前档失败则换下一档，本帧直通 |
+| `PlaybackPipeline` | 超分位（Anime4K） | 超分失败则直通 |
 | `PlaybackEngine` | 打开/时钟/状态 | 源失败则停在错误态 |
 | `PlayerChrome` | 打开、进度、Anime4K、插帧 | 不直接操作解码器 |
 
@@ -38,7 +39,7 @@
 2. **已完成**：LGPL FFmpeg 共享库 + `HaoReader` C 盒 + mkv/webm/avi/ts。
 3. **已完成**：统一 `VideoSource.pull()` + `PlaybackSession` + Metal 直通出画（mp4/mov/m4v 与 mkv/webm/avi/ts 同一条时钟）。
 4. **已完成**：Anime4K Fast Mode A（`PlaybackPipeline` 超分，失败直通）。
-5. **第二期**：`VTLowLatencyFrameInterpolation`。
+5. **已完成**：流畅档三态——关 / 快（`VTLowLatencyFrameInterpolation`） / 高质量（自维护 IFRNet-S）。皆源分辨率时间 2×，先于 Anime4K。过载：高质量→快→关。见 `docs/superpowers/specs/2026-09-09-interpolation-smooth-design.md`。禁止 SVP、完整 RIFE 4.25、ncnn-Vulkan。
 
 ## App Store
 

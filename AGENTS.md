@@ -8,7 +8,7 @@ Hao Player 是面向 Mac App Store 的超轻量本地视频播放器：一个 `.
 
 技术栈：Swift 6 / macOS 26+ / Apple Silicon only。解码走 AVFoundation + 自建 LGPL FFmpeg + VideoToolbox。增强走自己的 Metal / `VTFrameProcessor` 管线。禁止 libmpv、禁止 GPL 源码、禁止 Homebrew 运行时依赖。
 
-当前阶段：统一拉帧 + Metal 直通 + Anime4K Fast A。插帧按 `docs/ARCHITECTURE.md` 第二期，不要提前做。
+当前阶段：统一拉帧 + Metal 直通 + Anime4K Fast A + 流畅档三态（关 / 快 VT / 高质量 IFRNet-S）。字幕按架构分期，不要提前做。
 
 FFmpeg 库在 `Vendor/FFmpeg/dist`。源码树在 `Vendor/FFmpeg/src`（不入库）。重编：`scripts/build_ffmpeg_lgpl.sh`。
 
@@ -32,7 +32,7 @@ xcodebuild -scheme HaoPlayer -destination 'platform=macOS,arch=arm64' -derivedDa
 Sources/App        应用入口、单一 Window
 Sources/Playback   PlaybackEngine：唯一编排点
 Sources/Decode     VideoSource 协议；AVFoundationSource；HaoReader C 盒
-Sources/Enhance    FrameProcessor；设置；日后 Anime4K / VT 插帧
+Sources/Enhance    FrameProcessor；Anime4K Fast A；流畅档（VT 快 / IFRNet-S 高质量）
 Sources/Present    CAMetalLayer 直通出画；Anime4K 随后接同一层
 Sources/UI         极简 chrome：打开、进度、两个开关
 Sources/Legal      Licenses、书签/续播

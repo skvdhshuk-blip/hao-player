@@ -6,7 +6,7 @@ final class EnhancementSettingsTests: XCTestCase {
         let settings = EnhancementSettings()
         XCTAssertTrue(settings.anime4KEnabled)
         XCTAssertEqual(settings.anime4KPreset, .fastA)
-        XCTAssertFalse(settings.interpolationEnabled)
+        XCTAssertEqual(settings.interpolation, .off)
     }
 
     func testPipelinePassthroughKeepsOneFrame() throws {

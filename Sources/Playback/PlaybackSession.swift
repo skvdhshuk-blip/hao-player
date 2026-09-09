@@ -18,11 +18,13 @@ final class PlaybackSession: @unchecked Sendable {
         static let decodeIdle = 0.03
         static let decodeWait = 0.01
         static let seekSlop = 0.05
+        static let futureHorizon = 2.0
     }
 
     let presenter = MetalPresenter()
     let pipeline = PlaybackPipeline()
 
+    private let interpolation: InterpolationRuntime
     private let anime4K = Anime4KProcessor()
     private let passthrough = PassthroughProcessor()
     private var anime4KEnabled = true
@@ -45,6 +47,7 @@ final class PlaybackSession: @unchecked Sendable {
     private var sampleRate = 48000.0
     private var pendingSeek: Double?
     private(set) var dropBefore = 0.0
+    private(set) var seekEpoch = 0
 
     private(set) var duration = 0.0
     private(set) var currentTime = 0.0
@@ -52,10 +55,29 @@ final class PlaybackSession: @unchecked Sendable {
     var onError: ((String) -> Void)?
 
     var isPlaying: Bool { transport == .playing }
+    var activeInterpolation: InterpolationMode { interpolation.active }
+    var queuedFramePTS: [Double] {
+        lock.lock()
+        defer { lock.unlock() }
+        return videoFrames.map(\.pts)
+    }
 
-    func applyEnhancements(_ enabled: Bool) {
+    func publishEnhanced(_ outgoing: [VideoFrame], epoch: Int) {
+        lock.lock()
+        if epoch == seekEpoch {
+            videoFrames.append(contentsOf: outgoing)
+        }
+        lock.unlock()
+    }
+
+    init(makeInterpolator: ((InterpolationMode) -> FrameProcessor)? = nil) {
+        interpolation = InterpolationRuntime(make: makeInterpolator ?? PlaybackSession.defaultInterpolator)
+    }
+
+    func applyEnhancements(_ settings: EnhancementSettings) {
         enhanceLock.lock()
-        anime4KEnabled = enabled
+        anime4KEnabled = settings.anime4KEnabled
+        interpolation.setRequested(settings.interpolation)
         refreshUpscaler()
         enhanceLock.unlock()
     }
@@ -63,6 +85,8 @@ final class PlaybackSession: @unchecked Sendable {
     func open(_ source: VideoSource) {
         shutdown()
         enhanceLock.lock()
+        interpolation.restoreRequested()
+        interpolation.reset()
         upscalerFailed = false
         anime4K.resetFailure()
         refreshUpscaler()
@@ -107,7 +131,11 @@ final class PlaybackSession: @unchecked Sendable {
         videoFrames.removeAll()
         pendingSeek = clamped
         dropBefore = clamped
+        seekEpoch += 1
         lock.unlock()
+        enhanceLock.lock()
+        interpolation.reset()
+        enhanceLock.unlock()
         currentTime = clamped
         timeAnchor = clamped
         hostAnchor = CACurrentMediaTime()
@@ -130,6 +158,7 @@ final class PlaybackSession: @unchecked Sendable {
         videoFrames.removeAll()
         pendingSeek = nil
         dropBefore = 0
+        seekEpoch += 1
         lock.unlock()
         onMain {
             self.clockTimer?.invalidate()
@@ -175,7 +204,8 @@ final class PlaybackSession: @unchecked Sendable {
             frames: &videoFrames,
             ready: presenter.isReady,
             late: Timing.lateFrame,
-            early: Timing.earlyFrame
+            early: Timing.earlyFrame,
+            horizon: Timing.futureHorizon
         )
         lock.unlock()
         if let frame, !presenter.draw(frame.pixelBuffer) {
@@ -214,6 +244,7 @@ final class PlaybackSession: @unchecked Sendable {
             lock.lock()
             let seekTo = pendingSeek
             pendingSeek = nil
+            let epoch = seekEpoch
             lock.unlock()
             if let seekTo {
                 do {
@@ -234,9 +265,7 @@ final class PlaybackSession: @unchecked Sendable {
                 case .video(let frame):
                     if frame.pts + Timing.seekSlop >= dropBefore {
                         let outgoing = enhance(frame)
-                        lock.lock()
-                        videoFrames.append(outgoing)
-                        lock.unlock()
+                        publishEnhanced(outgoing, epoch: epoch)
                     }
                 case .audio(let packet):
                     scheduleAudio(packet)
@@ -252,15 +281,39 @@ final class PlaybackSession: @unchecked Sendable {
         pipeline.upscaler = (anime4KEnabled && !upscalerFailed) ? anime4K : passthrough
     }
 
-    private func enhance(_ frame: VideoFrame) -> VideoFrame {
+    func enhance(_ frame: VideoFrame) -> [VideoFrame] {
         enhanceLock.lock()
-        defer { enhanceLock.unlock() }
+        let runtime = interpolation
+        let upscaler = pipeline.upscaler
+        enhanceLock.unlock()
+
+        let start = CACurrentMediaTime()
+        let mode = runtime.active
+        let interpolated = runtime.process(frame)
+        let outgoing: [VideoFrame]
         do {
-            return try pipeline.process(frame)[0]
+            outgoing = try interpolated.flatMap { try upscaler.process($0) }
         } catch {
+            enhanceLock.lock()
             upscalerFailed = true
             refreshUpscaler()
-            return frame
+            enhanceLock.unlock()
+            outgoing = interpolated
+        }
+        if runtime.active == mode {
+            runtime.noteProcessDuration(CACurrentMediaTime() - start, sourceInterval: frame.duration)
+        }
+        return outgoing
+    }
+
+    private static func defaultInterpolator(_ mode: InterpolationMode) -> FrameProcessor {
+        switch mode {
+        case .off:
+            return PassthroughProcessor()
+        case .fast:
+            return VTInterpolationProcessor()
+        case .quality:
+            return IFRNetProcessor()
         }
     }
 
@@ -329,10 +382,14 @@ enum VideoDisplay {
         frames: inout [VideoFrame],
         ready: Bool,
         late: Double,
-        early: Double
+        early: Double,
+        horizon: Double = 2.0
     ) -> VideoFrame? {
         guard ready else { return nil }
         while frames.count > 1, let first = frames.first, first.pts < now - late {
+            frames.removeFirst()
+        }
+        while let first = frames.first, first.pts > now + horizon {
             frames.removeFirst()
         }
         if let first = frames.first, first.pts <= now + early {

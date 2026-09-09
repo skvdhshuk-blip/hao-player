@@ -35,6 +35,9 @@ targets:
         excludes:
           - "**/.gitkeep"
           - Info.plist
+          - IFRNet_S.mlpackage
+          - IFRNet_S.mlpackage/**
+      - path: Resources/IFRNet_S.mlpackage
     settings:
       base:
         PRODUCT_NAME: HaoPlayer

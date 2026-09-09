@@ -53,11 +53,14 @@ struct PlayerChrome: View {
                 .controlSize(.mini)
                 .help("官方 Fast A 超分。关闭则源分辨率直通。")
 
-            Toggle("流畅档", isOn: $engine.settings.interpolationEnabled)
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .disabled(true)
-                .help("第二期接入系统插帧。")
+            Picker("流畅档", selection: $engine.settings.interpolation) {
+                Text("关").tag(InterpolationMode.off)
+                Text("快").tag(InterpolationMode.fast)
+                Text("高质量").tag(InterpolationMode.quality)
+            }
+            .pickerStyle(.segmented)
+            .controlSize(.mini)
+            .help("快是系统低延迟补帧，高质量是 IFRNet。")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

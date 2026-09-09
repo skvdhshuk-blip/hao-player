@@ -37,6 +37,20 @@ final class VideoDisplayTests: XCTestCase {
         XCTAssertEqual(frames.count, 3)
     }
 
+    func testSkipsFutureHeadAfterBackwardSeek() throws {
+        var frames = [try frame(pts: 60), try frame(pts: 10)]
+        let taken = VideoDisplay.take(
+            now: 10,
+            frames: &frames,
+            ready: true,
+            late: 0.18,
+            early: 0.03,
+            horizon: 2
+        )
+        XCTAssertEqual(taken?.pts ?? -1, 10, accuracy: 0.0001)
+        XCTAssertTrue(frames.isEmpty)
+    }
+
     func testShowsNewestLateFrameOnceReady() throws {
         var frames = [try frame(pts: 0), try frame(pts: 0.04), try frame(pts: 0.08)]
         let taken = VideoDisplay.take(

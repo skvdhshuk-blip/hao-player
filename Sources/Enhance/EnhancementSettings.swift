@@ -1,7 +1,13 @@
+enum InterpolationMode: String, CaseIterable {
+    case off
+    case fast
+    case quality
+}
+
 struct EnhancementSettings: Equatable {
     var anime4KEnabled: Bool = true
     var anime4KPreset: Anime4KPreset = .fastA
-    var interpolationEnabled: Bool = false
+    var interpolation: InterpolationMode = .off
 
     enum Anime4KPreset: String, CaseIterable {
         case fastA

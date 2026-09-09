@@ -14,6 +14,7 @@
 		0577538C78078F2E78E11AD1 /* Anime4KFastA.metal in Sources */ = {isa = PBXBuildFile; fileRef = FFFE623DABF5C16E50F06E31 /* Anime4KFastA.metal */; };
 		05BA13D721C3FFAC59F387E6 /* WindowNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B1802C53A39D80DC818A40 /* WindowNotifications.swift */; };
 		0AE7BB862556B29FAF3B62AC /* FileOpeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403C83745211281082B8FFDB /* FileOpeningTests.swift */; };
+		102202234FBD648B81938C05 /* InterpolationProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E485AFACB48F123AE9D3D45 /* InterpolationProcessorTests.swift */; };
 		1DFF8E60FB6309C31A0E85DF /* MetalPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A266250609F1675D8E0A7C1 /* MetalPresenterTests.swift */; };
 		203F1AD9E3CDFCE3A9EC98B3 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = DB0F40A3BC20A91861B98456 /* README.md */; };
 		2678DB82DA73729ACF617D37 /* Anime4K-MIT.txt in Resources */ = {isa = PBXBuildFile; fileRef = 17C9F3025B380DD26DAE3DB5 /* Anime4K-MIT.txt */; };
@@ -23,6 +24,7 @@
 		45F368DCD267E6A6B1E67F34 /* FileDropCatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EEC2EB75034CC70B5E016E /* FileDropCatcher.swift */; };
 		498031E67102C3F449D007D4 /* FileOpening.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8930FF1E68FE4CF528F9AD9 /* FileOpening.swift */; };
 		4D9378398AA4820587220178 /* Apache-2.0.txt in Resources */ = {isa = PBXBuildFile; fileRef = 32F5300ED3D82A002C36B7B4 /* Apache-2.0.txt */; };
+		4F507D03F005C142690A6278 /* VTInterpolationProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFB857810E0F5C7640FA1C1 /* VTInterpolationProcessor.swift */; };
 		519890C2DE15BD2C2BC33F77 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E6A468975560EF12B3EF4649 /* PrivacyInfo.xcprivacy */; };
 		5663C73F0C2D75929AD3C690 /* PassthroughProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6ED8D77F74D10F3F2BB6DDA /* PassthroughProcessor.swift */; };
 		5FA96E9D3433026486EDC417 /* WindowActionBinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 553CD7A65A2EBA37FCAACA09 /* WindowActionBinder.swift */; };
@@ -38,7 +40,10 @@
 		9B6B3533984F9705F8A81334 /* SourceRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F917CD40767F08CA5E361F74 /* SourceRouterTests.swift */; };
 		A0BCB83E3F60FDDEFAA27E07 /* EnhancementSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A93F0C6B21EFE131F848B36 /* EnhancementSettings.swift */; };
 		A7FC0F38C72AD0160666B5D2 /* FileDropHitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B634FCBD37BB5B07D0591C6 /* FileDropHitTests.swift */; };
+		AC4BE69FDA93F080A1B7C9CD /* InterpolationRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB522C6AFC8124777A8B9C24 /* InterpolationRuntime.swift */; };
+		B349C908DC49EBA3CA67AFD3 /* IFRNet-MIT.txt in Resources */ = {isa = PBXBuildFile; fileRef = 061737FA70AC5B04542DAE3D /* IFRNet-MIT.txt */; };
 		B3F8DBE673B14DC84C66D392 /* ResumeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC26D3C1C992A04D78471683 /* ResumeStore.swift */; };
+		BA38A262C5D5E590002F165C /* PixelBufferIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67DCEF088A688801F554F304 /* PixelBufferIO.swift */; };
 		C042DD12D58BD0E2609BE984 /* PlayerChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F32EB4111997D830EC2FEE6D /* PlayerChrome.swift */; };
 		C4837C25F02218A9E82D8FC2 /* MetalPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E231B4B3BB1A3A69314091 /* MetalPresenter.swift */; };
 		CB4DF97F76602AEF23809489 /* PlayerScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C175322B6A088F8F64BEBE7 /* PlayerScreen.swift */; };
@@ -46,7 +51,9 @@
 		CDC150D7DCAEDA19B5885FBD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F8EE3366D17686B69E6A2EE9 /* Assets.xcassets */; };
 		D9663E3C2B64C1673ECD9B94 /* Anime4KProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366C90FA4C63C435E462AF0F /* Anime4KProcessor.swift */; };
 		DC88D966E7DD96BC81626E07 /* FrameProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E276B27375DC7622FA585EF4 /* FrameProcessor.swift */; };
+		DEBA031E9FE7636C2DC48E26 /* IFRNetProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6290F9A6729720DBF6988ED0 /* IFRNetProcessor.swift */; };
 		E75E84E9E0FEC5E435221CEA /* hao_reader.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A3A35C6E70E57D3EC00142B /* hao_reader.c */; };
+		E933874B11821CB47A5FB7AC /* IFRNet_S.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = DA56ED09C4042AC4D6907CB7 /* IFRNet_S.mlpackage */; };
 		EAA19FB0E2537ED9C9FA000F /* FFmpegVTSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10FB20EA96E886A7761610D8 /* FFmpegVTSource.swift */; };
 		F8BA4B941F4374238B679E2F /* AVFoundationSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3DA6AA79335DBAA6111D78 /* AVFoundationSource.swift */; };
 		FEE0AE09C82B240F0C56E6A9 /* PlaybackSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA510CDCF11008DAE539D61 /* PlaybackSessionTests.swift */; };
@@ -64,6 +71,7 @@
 
 /* Begin PBXFileReference section */
 		01FF24D62A58EE59BF8A864F /* HaoPlayer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "HaoPlayer-Bridging-Header.h"; sourceTree = "<group>"; };
+		061737FA70AC5B04542DAE3D /* IFRNet-MIT.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "IFRNet-MIT.txt"; sourceTree = "<group>"; };
 		0800137C38BD208F66DBC691 /* PlaybackPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPipeline.swift; sourceTree = "<group>"; };
 		0A93F0C6B21EFE131F848B36 /* EnhancementSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancementSettings.swift; sourceTree = "<group>"; };
 		0AB2DCA5F0F147BB7D1C20BB /* MediaClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaClockTests.swift; sourceTree = "<group>"; };
@@ -80,10 +88,14 @@
 		53B1802C53A39D80DC818A40 /* WindowNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowNotifications.swift; sourceTree = "<group>"; };
 		5489E69F93A5DD003CDB4A27 /* MediaSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSample.swift; sourceTree = "<group>"; };
 		553CD7A65A2EBA37FCAACA09 /* WindowActionBinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowActionBinder.swift; sourceTree = "<group>"; };
+		6290F9A6729720DBF6988ED0 /* IFRNetProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IFRNetProcessor.swift; sourceTree = "<group>"; };
+		67DCEF088A688801F554F304 /* PixelBufferIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBufferIO.swift; sourceTree = "<group>"; };
 		694556F5DDEF8F3996C6947A /* FFmpegVTSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFmpegVTSourceTests.swift; sourceTree = "<group>"; };
 		6BA510CDCF11008DAE539D61 /* PlaybackSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSessionTests.swift; sourceTree = "<group>"; };
+		7AFB857810E0F5C7640FA1C1 /* VTInterpolationProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTInterpolationProcessor.swift; sourceTree = "<group>"; };
 		8681A4D41C1B779DD4A7C44A /* MediaClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaClock.swift; sourceTree = "<group>"; };
 		8A3A35C6E70E57D3EC00142B /* hao_reader.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hao_reader.c; sourceTree = "<group>"; };
+		8E485AFACB48F123AE9D3D45 /* InterpolationProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterpolationProcessorTests.swift; sourceTree = "<group>"; };
 		955A331360747F9B5C847FF0 /* SourceRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceRouter.swift; sourceTree = "<group>"; };
 		A22883E4E07B0FCE1762833B /* hao_reader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = hao_reader.h; sourceTree = "<group>"; };
 		A34F0EB6958E0951CA1BFD10 /* EnhancementSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancementSettingsTests.swift; sourceTree = "<group>"; };
@@ -95,9 +107,11 @@
 		C29B38CE0037A8332822FCC3 /* LicensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicensesView.swift; sourceTree = "<group>"; };
 		C75C5CCEEFCB0DFA42AF1755 /* MetalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView.swift; sourceTree = "<group>"; };
 		C8930FF1E68FE4CF528F9AD9 /* FileOpening.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOpening.swift; sourceTree = "<group>"; };
+		CB522C6AFC8124777A8B9C24 /* InterpolationRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterpolationRuntime.swift; sourceTree = "<group>"; };
 		CC26D3C1C992A04D78471683 /* ResumeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumeStore.swift; sourceTree = "<group>"; };
 		D66DBB5826D6C507E87FD5D0 /* LGPL-2.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LGPL-2.1.txt"; sourceTree = "<group>"; };
 		D6ED8D77F74D10F3F2BB6DDA /* PassthroughProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughProcessor.swift; sourceTree = "<group>"; };
+		DA56ED09C4042AC4D6907CB7 /* IFRNet_S.mlpackage */ = {isa = PBXFileReference; path = IFRNet_S.mlpackage; sourceTree = "<group>"; };
 		DB0F40A3BC20A91861B98456 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		E0A45CE705D1B7C894045B51 /* AVFoundationSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationSourceTests.swift; sourceTree = "<group>"; };
 		E276B27375DC7622FA585EF4 /* FrameProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameProcessor.swift; sourceTree = "<group>"; };
@@ -128,6 +142,7 @@
 			children = (
 				17C9F3025B380DD26DAE3DB5 /* Anime4K-MIT.txt */,
 				32F5300ED3D82A002C36B7B4 /* Apache-2.0.txt */,
+				061737FA70AC5B04542DAE3D /* IFRNet-MIT.txt */,
 				D66DBB5826D6C507E87FD5D0 /* LGPL-2.1.txt */,
 				DB0F40A3BC20A91861B98456 /* README.md */,
 			);
@@ -163,6 +178,7 @@
 				694556F5DDEF8F3996C6947A /* FFmpegVTSourceTests.swift */,
 				2B634FCBD37BB5B07D0591C6 /* FileDropHitTests.swift */,
 				403C83745211281082B8FFDB /* FileOpeningTests.swift */,
+				8E485AFACB48F123AE9D3D45 /* InterpolationProcessorTests.swift */,
 				0AB2DCA5F0F147BB7D1C20BB /* MediaClockTests.swift */,
 				1A266250609F1675D8E0A7C1 /* MetalPresenterTests.swift */,
 				6BA510CDCF11008DAE539D61 /* PlaybackSessionTests.swift */,
@@ -176,6 +192,7 @@
 			isa = PBXGroup;
 			children = (
 				F8EE3366D17686B69E6A2EE9 /* Assets.xcassets */,
+				DA56ED09C4042AC4D6907CB7 /* IFRNet_S.mlpackage */,
 				E6A468975560EF12B3EF4649 /* PrivacyInfo.xcprivacy */,
 				2839F24620E740A6E5FA1FC7 /* LICENSES */,
 			);
@@ -250,8 +267,12 @@
 				366C90FA4C63C435E462AF0F /* Anime4KProcessor.swift */,
 				0A93F0C6B21EFE131F848B36 /* EnhancementSettings.swift */,
 				E276B27375DC7622FA585EF4 /* FrameProcessor.swift */,
+				6290F9A6729720DBF6988ED0 /* IFRNetProcessor.swift */,
+				CB522C6AFC8124777A8B9C24 /* InterpolationRuntime.swift */,
 				D6ED8D77F74D10F3F2BB6DDA /* PassthroughProcessor.swift */,
+				67DCEF088A688801F554F304 /* PixelBufferIO.swift */,
 				0800137C38BD208F66DBC691 /* PlaybackPipeline.swift */,
+				7AFB857810E0F5C7640FA1C1 /* VTInterpolationProcessor.swift */,
 				CB0BEE2197180A58D2581DB4 /* Anime4K */,
 			);
 			path = Enhance;
@@ -365,6 +386,7 @@
 				2678DB82DA73729ACF617D37 /* Anime4K-MIT.txt in Resources */,
 				4D9378398AA4820587220178 /* Apache-2.0.txt in Resources */,
 				CDC150D7DCAEDA19B5885FBD /* Assets.xcassets in Resources */,
+				B349C908DC49EBA3CA67AFD3 /* IFRNet-MIT.txt in Resources */,
 				00D3AB48DBB72072BDCFA21D /* LGPL-2.1.txt in Resources */,
 				519890C2DE15BD2C2BC33F77 /* PrivacyInfo.xcprivacy in Resources */,
 				203F1AD9E3CDFCE3A9EC98B3 /* README.md in Resources */,
@@ -409,12 +431,16 @@
 				498031E67102C3F449D007D4 /* FileOpening.swift in Sources */,
 				DC88D966E7DD96BC81626E07 /* FrameProcessor.swift in Sources */,
 				62A1FAB7DCAB7A998FFD83D7 /* HaoPlayerApp.swift in Sources */,
+				DEBA031E9FE7636C2DC48E26 /* IFRNetProcessor.swift in Sources */,
+				E933874B11821CB47A5FB7AC /* IFRNet_S.mlpackage in Sources */,
+				AC4BE69FDA93F080A1B7C9CD /* InterpolationRuntime.swift in Sources */,
 				45352CD815C8C07E67553823 /* LicensesView.swift in Sources */,
 				CBE03C0158450CC5D7AE82A8 /* MediaClock.swift in Sources */,
 				858D761BFDD1E8AB52E4402D /* MediaSample.swift in Sources */,
 				C4837C25F02218A9E82D8FC2 /* MetalPresenter.swift in Sources */,
 				643FDD777E7B7F595485DD14 /* MetalView.swift in Sources */,
 				5663C73F0C2D75929AD3C690 /* PassthroughProcessor.swift in Sources */,
+				BA38A262C5D5E590002F165C /* PixelBufferIO.swift in Sources */,
 				03AEE49FDEEC9ED2E045A85E /* PlaybackEngine.swift in Sources */,
 				6EDA06F13314CEDC87B0CF35 /* PlaybackPipeline.swift in Sources */,
 				296FAC77694ED0FBE8D7EDCA /* PlaybackSession.swift in Sources */,
@@ -422,6 +448,7 @@
 				CB4DF97F76602AEF23809489 /* PlayerScreen.swift in Sources */,
 				B3F8DBE673B14DC84C66D392 /* ResumeStore.swift in Sources */,
 				7CFCE0EA704B5A468671FEA8 /* SourceRouter.swift in Sources */,
+				4F507D03F005C142690A6278 /* VTInterpolationProcessor.swift in Sources */,
 				9001973244AEA0F7BD0DCA36 /* VideoSource.swift in Sources */,
 				5FA96E9D3433026486EDC417 /* WindowActionBinder.swift in Sources */,
 				05BA13D721C3FFAC59F387E6 /* WindowNotifications.swift in Sources */,
@@ -439,6 +466,7 @@
 				04489501FDF05858C0C350ED /* FFmpegVTSourceTests.swift in Sources */,
 				A7FC0F38C72AD0160666B5D2 /* FileDropHitTests.swift in Sources */,
 				0AE7BB862556B29FAF3B62AC /* FileOpeningTests.swift in Sources */,
+				102202234FBD648B81938C05 /* InterpolationProcessorTests.swift in Sources */,
 				94BB14E0C7293D2B308F16A5 /* MediaClockTests.swift in Sources */,
 				1DFF8E60FB6309C31A0E85DF /* MetalPresenterTests.swift in Sources */,
 				FEE0AE09C82B240F0C56E6A9 /* PlaybackSessionTests.swift in Sources */,

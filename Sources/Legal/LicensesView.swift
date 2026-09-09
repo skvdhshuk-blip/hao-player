@@ -27,6 +27,8 @@ struct LicensesView: View {
 
     本应用嵌入 Anime4K（Fast Mode A）着色器，MIT License，Copyright (c) 2019-2021 bloc97。上游：https://github.com/bloc97/Anime4K
 
+    本应用嵌入 IFRNet-S 插帧权重，MIT License，Copyright (c) 2022 Lingtong Kong。上游：https://github.com/ltkong218/IFRNet
+
     其他计划嵌入、且许可证允许上架的组件：
     - libass：ISC（尚未嵌入）
 

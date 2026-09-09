@@ -12,7 +12,7 @@ final class PlaybackEngine: ObservableObject, @unchecked Sendable {
     @Published private(set) var duration = 0.0
     @Published private(set) var title = ""
     @Published var settings = EnhancementSettings() {
-        didSet { session.applyEnhancements(settings.anime4KEnabled) }
+        didSet { session.applyEnhancements(settings) }
     }
     @Published var errorMessage: String?
 
@@ -33,7 +33,7 @@ final class PlaybackEngine: ObservableObject, @unchecked Sendable {
             self?.errorMessage = message
             self?.isPlaying = false
         }
-        session.applyEnhancements(settings.anime4KEnabled)
+        session.applyEnhancements(settings)
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
