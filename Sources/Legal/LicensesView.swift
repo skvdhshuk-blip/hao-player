@@ -25,9 +25,9 @@ struct LicensesView: View {
 
     书面提供（自本版本发布起三年）：可应要求提供该版本的目标文件和链接输入，以便用修改过的 LGPL 库重新链接。请联系应用开发者。构建脚本见仓库 scripts/build_ffmpeg_lgpl.sh。
 
+    本应用嵌入 Anime4K（Fast Mode A）着色器，MIT License，Copyright (c) 2019-2021 bloc97。上游：https://github.com/bloc97/Anime4K
+
     其他计划嵌入、且许可证允许上架的组件：
-    - Anime4K：MIT（尚未嵌入）
-    - Anime4KMetal 运行时：Apache-2.0（尚未嵌入）
     - libass：ISC（尚未嵌入）
 
     禁止进入本仓库的组件：IINA、Glass Player、带 LuaJIT 的 libmpv、任何 GPL 源码。

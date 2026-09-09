@@ -1,7 +1,7 @@
 # 统一拉帧 + Metal 出画
 
 日期：2026-09-09  
-状态：待评审  
+状态：第一刀已实现（直通拉帧），第二刀 Anime4K 未开始  
 决定：mp4/mov/m4v 与 mkv/webm/avi 走同一套 `pull()`，不再用 `AVPlayerLayer` / `AVSampleBufferDisplayLayer` 出画。
 
 ## 目标
@@ -94,7 +94,7 @@ protocol VideoSource: AnyObject {
 搬现控制器的 `Transport`、`MediaClock`、主线程 `AVAudioEngine`、单一定时器。出画改为 `MetalPresenter.draw(pixelBuffer)`，不再建 `CMSampleBuffer`。
 
 **`MetalPresenter`**  
-一块 `CAMetalLayer`，`videoGravity` 等价 letterbox。第一刀：采样直通（`sampled` 或 1:1 blit）。第二刀：同一 drawable 上跑 Anime4K Fast A。窗口 resize 只改 drawable 尺寸，不改源分辨率。
+一块 `CAMetalLayer`，`videoGravity` 等价 letterbox。只做直通 blit + letterbox。窗口 resize 只改 drawable 尺寸，不改源分辨率。Anime4K 接到 `PlaybackPipeline`，见 `2026-09-09-anime4k-fast-a-design.md`。
 
 **Anime4K（第二刀）**  
 默认 `EnhancementSettings.anime4KEnabled = true`，preset `fastA`。着色器自己维护，许可证 MIT，写进 Licenses。禁止搬 IINA / Anime4KMetal 播放器壳。编译或运行失败：该次会话改直通，底栏开关可保持开，不弹致命错误。

@@ -51,7 +51,7 @@ struct PlayerChrome: View {
             Toggle("Anime4K", isOn: $engine.settings.anime4KEnabled)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                .help("超分将接入 Metal 管线；现在只记住开关。")
+                .help("官方 Fast A 超分。关闭则源分辨率直通。")
 
             Toggle("流畅档", isOn: $engine.settings.interpolationEnabled)
                 .toggleStyle(.switch)

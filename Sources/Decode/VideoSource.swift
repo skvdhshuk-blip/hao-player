@@ -1,4 +1,3 @@
-import CoreMedia
 import Foundation
 
 enum SourceError: LocalizedError {
@@ -8,7 +7,6 @@ enum SourceError: LocalizedError {
     case decodeFailed(String)
     case notOpen
     case scopedAccessFailed
-    case framePullNotReady
 
     var errorDescription: String? {
         switch self {
@@ -24,15 +22,15 @@ enum SourceError: LocalizedError {
             return "还没有打开文件。"
         case .scopedAccessFailed:
             return "无法访问该文件。请用「打开」或重新拖进来。"
-        case .framePullNotReady:
-            return "拉帧管线尚未接入。"
         }
     }
 }
 
 protocol VideoSource: AnyObject {
     func open(_ url: URL) async throws
-    func seek(to time: CMTime) async throws
-    func pullFrame() async throws -> VideoFrame
-    var duration: CMTime { get }
+    func seek(to time: Double) throws
+    func pull() throws -> MediaSample
+    var duration: Double { get }
+    var hasAudio: Bool { get }
+    var sampleRate: Double { get }
 }

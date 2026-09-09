@@ -12,7 +12,7 @@ final class EnhancementSettingsTests: XCTestCase {
     func testPipelinePassthroughKeepsOneFrame() throws {
         let pipeline = PlaybackPipeline()
         let buffer = try makeBuffer()
-        let frame = VideoFrame(pixelBuffer: buffer, pts: .zero, duration: .invalid)
+        let frame = VideoFrame(pixelBuffer: buffer, pts: 0, duration: 0.04)
         let out = try pipeline.process(frame)
         XCTAssertEqual(out.count, 1)
         XCTAssertTrue(out[0].pixelBuffer === buffer)

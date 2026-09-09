@@ -30,14 +30,15 @@
 | `PlaybackEngine` | 打开/时钟/状态 | 源失败则停在错误态 |
 | `PlayerChrome` | 打开、进度、Anime4K、插帧 | 不直接操作解码器 |
 
-第一期显示层可用 `AVPlayer` + `AVPlayerLayer`（自定义 chrome，不是 `AVPlayerView`）。接入 Anime4K 后换成拉帧 + Metal。
+显示走统一拉帧 + `CAMetalLayer`（`AVFoundationSource` / `FFmpegVTSource`）。Anime4K 接在 `PlaybackPipeline` 超分位。
 
 ## 实现分期
 
-1. **已完成**：沙盒工程 + mp4/mov/m4v + 打开/拖放/续播 + 关窗可再开 + Licenses。
+1. **已完成**：沙盒工程 + 打开/拖放/续播 + 关窗可再开 + Licenses。
 2. **已完成**：LGPL FFmpeg 共享库 + `HaoReader` C 盒 + mkv/webm/avi/ts。
-3. **随后**：Anime4KMetal 运行时，默认 Fast Mode A。
-4. **第二期**：`VTLowLatencyFrameInterpolation`。
+3. **已完成**：统一 `VideoSource.pull()` + `PlaybackSession` + Metal 直通出画（mp4/mov/m4v 与 mkv/webm/avi/ts 同一条时钟）。
+4. **已完成**：Anime4K Fast Mode A（`PlaybackPipeline` 超分，失败直通）。
+5. **第二期**：`VTLowLatencyFrameInterpolation`。
 
 ## App Store
 

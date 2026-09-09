@@ -2,7 +2,7 @@ import AVFoundation
 import CoreVideo
 import QuartzCore
 
-final class FFmpegPlaybackController: @unchecked Sendable {
+final class PlaybackSession: @unchecked Sendable {
     private enum Transport {
         case stopped
         case playing
@@ -17,14 +17,21 @@ final class FFmpegPlaybackController: @unchecked Sendable {
         static let videoBacklog = 12
         static let decodeIdle = 0.03
         static let decodeWait = 0.01
+        static let seekSlop = 0.05
     }
 
-    let displayLayer = AVSampleBufferDisplayLayer()
+    let presenter = MetalPresenter()
+    let pipeline = PlaybackPipeline()
 
-    private var reader: UnsafeMutableRawPointer?
-    private let decodeQueue = DispatchQueue(label: "hao.ffmpeg.decode")
+    private let anime4K = Anime4KProcessor()
+    private let passthrough = PassthroughProcessor()
+    private var anime4KEnabled = true
+    private var upscalerFailed = false
+    private var source: (any VideoSource)?
+    private let decodeQueue = DispatchQueue(label: "hao.player.decode")
     private let lock = NSLock()
-    private var videoFrames: [(buffer: CVPixelBuffer, pts: Double, duration: Double)] = []
+    private let enhanceLock = NSLock()
+    private var videoFrames: [VideoFrame] = []
     private var decodeRunning = false
     private var transport: Transport = .stopped
     private var hostAnchor = CACurrentMediaTime()
@@ -37,26 +44,33 @@ final class FFmpegPlaybackController: @unchecked Sendable {
     private var hasAudio = false
     private var sampleRate = 48000.0
     private var pendingSeek: Double?
+    private(set) var dropBefore = 0.0
 
     private(set) var duration = 0.0
     private(set) var currentTime = 0.0
     var onTick: ((Double, Bool) -> Void)?
+    var onError: ((String) -> Void)?
 
     var isPlaying: Bool { transport == .playing }
 
-    func open(_ url: URL) throws {
+    func applyEnhancements(_ enabled: Bool) {
+        enhanceLock.lock()
+        anime4KEnabled = enabled
+        refreshUpscaler()
+        enhanceLock.unlock()
+    }
+
+    func open(_ source: VideoSource) {
         shutdown()
-        var opened: UnsafeMutableRawPointer?
-        let code = url.path.withCString { HaoReaderOpen(&opened, $0) }
-        guard code == 0, let opened else {
-            let detail = String(cString: HaoReaderLastError(nil))
-            throw SourceError.decodeFailed(detail)
-        }
-        reader = opened
-        duration = HaoReaderDuration(opened)
-        hasAudio = HaoReaderHasAudio(opened) != 0
-        let rate = HaoReaderAudioRate(opened)
-        sampleRate = rate > 0 ? Double(rate) : 48000
+        enhanceLock.lock()
+        upscalerFailed = false
+        anime4K.resetFailure()
+        refreshUpscaler()
+        enhanceLock.unlock()
+        self.source = source
+        duration = source.duration
+        hasAudio = source.hasAudio
+        sampleRate = source.sampleRate > 0 ? source.sampleRate : 48000
         if hasAudio {
             attachAudio()
         }
@@ -92,12 +106,12 @@ final class FFmpegPlaybackController: @unchecked Sendable {
         lock.lock()
         videoFrames.removeAll()
         pendingSeek = clamped
+        dropBefore = clamped
         lock.unlock()
         currentTime = clamped
         timeAnchor = clamped
         hostAnchor = CACurrentMediaTime()
         onMain {
-            self.displayLayer.flush()
             self.audioNode?.stop()
             if self.transport == .playing {
                 self.audioNode?.play()
@@ -112,10 +126,14 @@ final class FFmpegPlaybackController: @unchecked Sendable {
     func shutdown() {
         transport = .stopped
         decodeRunning = false
+        lock.lock()
+        videoFrames.removeAll()
+        pendingSeek = nil
+        dropBefore = 0
+        lock.unlock()
         onMain {
             self.clockTimer?.invalidate()
             self.clockTimer = nil
-            self.displayLayer.flushAndRemoveImage()
             self.audioNode?.stop()
             self.audioEngine?.stop()
             self.audioEngine = nil
@@ -124,17 +142,15 @@ final class FFmpegPlaybackController: @unchecked Sendable {
         }
         let closed = DispatchSemaphore(value: 0)
         decodeQueue.async {
-            self.lock.lock()
-            self.videoFrames.removeAll()
-            self.pendingSeek = nil
-            self.lock.unlock()
-            if let reader = self.reader {
-                HaoReaderClose(reader)
-                self.reader = nil
-            }
+            self.source = nil
             closed.signal()
         }
         closed.wait()
+        lock.lock()
+        videoFrames.removeAll()
+        pendingSeek = nil
+        dropBefore = 0
+        lock.unlock()
         currentTime = 0
         duration = 0
     }
@@ -154,18 +170,18 @@ final class FFmpegPlaybackController: @unchecked Sendable {
         let now = mediaTime()
         currentTime = now
         lock.lock()
-        while let first = videoFrames.first, first.pts < now - Timing.lateFrame {
-            videoFrames.removeFirst()
-        }
-        let frame: (CVPixelBuffer, Double, Double)?
-        if let first = videoFrames.first, first.pts <= now + Timing.earlyFrame {
-            frame = videoFrames.removeFirst()
-        } else {
-            frame = nil
-        }
+        let frame = VideoDisplay.take(
+            now: now,
+            frames: &videoFrames,
+            ready: presenter.isReady,
+            late: Timing.lateFrame,
+            early: Timing.earlyFrame
+        )
         lock.unlock()
-        if let frame {
-            enqueue(frame.0, pts: frame.1, duration: frame.2)
+        if let frame, !presenter.draw(frame.pixelBuffer) {
+            lock.lock()
+            videoFrames.insert(frame, at: 0)
+            lock.unlock()
         }
         let host = CACurrentMediaTime()
         if host - lastUIPublish >= Timing.uiInterval {
@@ -187,7 +203,7 @@ final class FFmpegPlaybackController: @unchecked Sendable {
     }
 
     private func runDecode() {
-        while decodeRunning, let reader {
+        while decodeRunning, let source {
             lock.lock()
             let backlog = videoFrames.count
             lock.unlock()
@@ -200,32 +216,59 @@ final class FFmpegPlaybackController: @unchecked Sendable {
             pendingSeek = nil
             lock.unlock()
             if let seekTo {
-                _ = HaoReaderSeek(reader, seekTo)
+                do {
+                    try source.seek(to: seekTo)
+                } catch {
+                    fail(error)
+                    break
+                }
             }
             if transport != .playing {
                 Thread.sleep(forTimeInterval: Timing.decodeIdle)
                 continue
             }
-            var kind: Int32 = 0
-            var video = HaoVideoFrame()
-            var audio = HaoAudioFrame()
-            let err = HaoReaderRead(reader, &kind, &video, &audio)
-            if err < 0 {
-                decodeRunning = false
+            do {
+                switch try source.pull() {
+                case .eof:
+                    decodeRunning = false
+                case .video(let frame):
+                    if frame.pts + Timing.seekSlop >= dropBefore {
+                        let outgoing = enhance(frame)
+                        lock.lock()
+                        videoFrames.append(outgoing)
+                        lock.unlock()
+                    }
+                case .audio(let packet):
+                    scheduleAudio(packet)
+                }
+            } catch {
+                fail(error)
                 break
             }
-            if kind == HAO_EOF {
-                decodeRunning = false
-                break
-            }
-            if kind == HAO_VIDEO, let raw = video.pixelBuffer {
-                let buffer = Unmanaged<CVPixelBuffer>.fromOpaque(raw).takeRetainedValue()
-                lock.lock()
-                videoFrames.append((buffer, video.pts, video.duration))
-                lock.unlock()
-            } else if kind == HAO_AUDIO, let pcm = audio.pcm {
-                scheduleAudio(pcm, frames: Int(audio.frameCount))
-            }
+        }
+    }
+
+    private func refreshUpscaler() {
+        pipeline.upscaler = (anime4KEnabled && !upscalerFailed) ? anime4K : passthrough
+    }
+
+    private func enhance(_ frame: VideoFrame) -> VideoFrame {
+        enhanceLock.lock()
+        defer { enhanceLock.unlock() }
+        do {
+            return try pipeline.process(frame)[0]
+        } catch {
+            upscalerFailed = true
+            refreshUpscaler()
+            return frame
+        }
+    }
+
+    private func fail(_ error: Error) {
+        decodeRunning = false
+        let message = error.localizedDescription
+        DispatchQueue.main.async { [weak self] in
+            self?.onError?(message)
         }
     }
 
@@ -253,46 +296,20 @@ final class FFmpegPlaybackController: @unchecked Sendable {
         }
     }
 
-    private func scheduleAudio(_ pcm: UnsafeMutablePointer<Float>, frames: Int) {
-        defer { free(pcm) }
-        guard let format = audioFormat, let node = audioNode, frames > 0 else { return }
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
+    private func scheduleAudio(_ packet: AudioBuffer) {
+        guard let format = audioFormat, let node = audioNode, packet.frameCount > 0 else { return }
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(packet.frameCount)),
               let channels = buffer.floatChannelData else {
             return
         }
-        buffer.frameLength = AVAudioFrameCount(frames)
+        buffer.frameLength = AVAudioFrameCount(packet.frameCount)
         let left = channels[0]
         let right = channels[1]
-        for i in 0..<frames {
-            left[i] = pcm[i * 2]
-            right[i] = pcm[i * 2 + 1]
+        for i in 0..<packet.frameCount {
+            left[i] = packet.pcm[i * 2]
+            right[i] = packet.pcm[i * 2 + 1]
         }
         node.scheduleBuffer(buffer)
-    }
-
-    private func enqueue(_ buffer: CVPixelBuffer, pts: Double, duration: Double) {
-        var format: CMVideoFormatDescription?
-        let status = CMVideoFormatDescriptionCreateForImageBuffer(
-            allocator: kCFAllocatorDefault,
-            imageBuffer: buffer,
-            formatDescriptionOut: &format
-        )
-        guard status == noErr, let format else { return }
-        var timing = CMSampleTimingInfo(
-            duration: CMTime(seconds: max(duration, 0.001), preferredTimescale: 600),
-            presentationTimeStamp: CMTime(seconds: pts, preferredTimescale: 600),
-            decodeTimeStamp: .invalid
-        )
-        var sample: CMSampleBuffer?
-        let sampleStatus = CMSampleBufferCreateReadyWithImageBuffer(
-            allocator: kCFAllocatorDefault,
-            imageBuffer: buffer,
-            formatDescription: format,
-            sampleTiming: &timing,
-            sampleBufferOut: &sample
-        )
-        guard sampleStatus == noErr, let sample else { return }
-        displayLayer.enqueue(sample)
     }
 
     private func mediaTime() -> Double {
@@ -303,5 +320,24 @@ final class FFmpegPlaybackController: @unchecked Sendable {
             elapsed: CACurrentMediaTime() - hostAnchor,
             duration: duration
         )
+    }
+}
+
+enum VideoDisplay {
+    static func take(
+        now: Double,
+        frames: inout [VideoFrame],
+        ready: Bool,
+        late: Double,
+        early: Double
+    ) -> VideoFrame? {
+        guard ready else { return nil }
+        while frames.count > 1, let first = frames.first, first.pts < now - late {
+            frames.removeFirst()
+        }
+        if let first = frames.first, first.pts <= now + early {
+            return frames.removeFirst()
+        }
+        return nil
     }
 }

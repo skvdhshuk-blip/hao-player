@@ -9,11 +9,8 @@ struct PlayerScreen: View {
             switch engine.mode {
             case .idle:
                 emptyState
-            case .avPlayer:
-                PlayerLayerView(player: engine.player)
-                    .ignoresSafeArea()
-            case .ffmpeg:
-                SampleBufferView(layer: engine.displayLayer)
+            case .playing:
+                MetalView(presenter: engine.session.presenter)
                     .ignoresSafeArea()
             }
             FileDropCatcher(
