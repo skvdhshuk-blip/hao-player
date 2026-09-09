@@ -1,8 +1,30 @@
 import CoreVideo
+import Metal
 import XCTest
 @testable import HaoPlayer
 
 final class MetalPresenterTests: XCTestCase {
+    func testGPUContextMapsBGRA() throws {
+        var buffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            8,
+            8,
+            kCVPixelFormatType_32BGRA,
+            [
+                kCVPixelBufferMetalCompatibilityKey: true,
+                kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+            ] as CFDictionary,
+            &buffer
+        )
+        guard status == kCVReturnSuccess, let buffer else {
+            throw NSError(domain: "HaoPlayerTests", code: 8)
+        }
+        let mapped = GPUContext.shared.map(buffer, plane: 0, format: .bgra8Unorm)
+        XCTAssertEqual(mapped?.metal.width, 8)
+        XCTAssertEqual(mapped?.metal.height, 8)
+    }
+
     func testEmptyResizeDoesNotBecomeReady() {
         let presenter = MetalPresenter()
         XCTAssertFalse(presenter.isReady)
@@ -51,7 +73,7 @@ final class VideoDisplayTests: XCTestCase {
         XCTAssertTrue(frames.isEmpty)
     }
 
-    func testShowsNewestLateFrameOnceReady() throws {
+    func testDropsEveryFrameWhenAllAreLate() throws {
         var frames = [try frame(pts: 0), try frame(pts: 0.04), try frame(pts: 0.08)]
         let taken = VideoDisplay.take(
             now: 0.5,
@@ -60,8 +82,22 @@ final class VideoDisplayTests: XCTestCase {
             late: 0.18,
             early: 0.03
         )
-        XCTAssertEqual(taken?.pts, 0.08)
+        XCTAssertNil(taken)
         XCTAssertTrue(frames.isEmpty)
+    }
+
+    func testShowsNewestFrameStillInsideLateWindow() throws {
+        var frames = [try frame(pts: 0), try frame(pts: 0.04), try frame(pts: 0.12)]
+        let taken = VideoDisplay.take(
+            now: 0.2,
+            frames: &frames,
+            ready: true,
+            late: 0.18,
+            early: 0.03
+        )
+        XCTAssertEqual(taken?.pts ?? -1, 0.04, accuracy: 0.0001)
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames[0].pts, 0.12, accuracy: 0.0001)
     }
 
     private func frame(pts: Double) throws -> VideoFrame {

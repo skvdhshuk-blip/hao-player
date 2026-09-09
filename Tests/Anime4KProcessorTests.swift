@@ -45,7 +45,10 @@ final class Anime4KProcessorTests: XCTestCase {
             width,
             height,
             kCVPixelFormatType_32BGRA,
-            [kCVPixelBufferMetalCompatibilityKey: true] as CFDictionary,
+            [
+                kCVPixelBufferMetalCompatibilityKey: true,
+                kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+            ] as CFDictionary,
             &buffer
         )
         guard status == kCVReturnSuccess, let buffer else {

@@ -7,7 +7,7 @@ enum MediaKind: Equatable {
 }
 
 enum SourceRouter {
-    static let ffmpegExtensions: Set<String> = ["mkv", "webm", "avi", "ts", "m2ts"]
+    static let ffmpegExtensions: Set<String> = ["mkv", "webm", "avi", "ts", "m2ts", "flv"]
 
     static func kind(for url: URL) -> MediaKind {
         if let kind = kind(forExtension: url.pathExtension) {
@@ -45,6 +45,9 @@ enum SourceRouter {
         if bytes.count >= 12,
            bytes[0] == 0x52, bytes[1] == 0x49, bytes[2] == 0x46, bytes[3] == 0x46,
            bytes[8] == 0x41, bytes[9] == 0x56, bytes[10] == 0x49, bytes[11] == 0x20 {
+            return .ffmpeg
+        }
+        if bytes[0] == 0x46, bytes[1] == 0x4C, bytes[2] == 0x56 {
             return .ffmpeg
         }
         return nil

@@ -26,6 +26,8 @@
 	<string>26.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Hao Player</string>
 	<key>NSPrincipalClass</key>
@@ -47,6 +49,7 @@
 				<string>org.matroska.mkv</string>
 				<string>org.webmproject.webm</string>
 				<string>public.avi</string>
+				<string>com.adobe.flash.video</string>
 			</array>
 		</dict>
 	</array>
@@ -112,6 +115,27 @@
 				<key>public.mime-type</key>
 				<array>
 					<string>video/x-msvideo</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Flash Video</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.adobe.flash.video</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>flv</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>video/x-flv</string>
 				</array>
 			</dict>
 		</dict>

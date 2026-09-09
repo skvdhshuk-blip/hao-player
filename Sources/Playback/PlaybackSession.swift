@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import CoreVideo
 import QuartzCore
@@ -10,7 +11,6 @@ final class PlaybackSession: @unchecked Sendable {
     }
 
     private enum Timing {
-        static let displayInterval = 1.0 / 120.0
         static let uiInterval = 0.25
         static let lateFrame = 0.18
         static let earlyFrame = 0.03
@@ -38,12 +38,14 @@ final class PlaybackSession: @unchecked Sendable {
     private var transport: Transport = .stopped
     private var hostAnchor = CACurrentMediaTime()
     private var timeAnchor = 0.0
-    private var clockTimer: Timer?
+    private var displayLink: CADisplayLink?
+    private var displayTarget: DisplayTickTarget?
     private var lastUIPublish = 0.0
     private var audioEngine: AVAudioEngine?
     private var audioNode: AVAudioPlayerNode?
     private var audioFormat: AVAudioFormat?
     private var hasAudio = false
+    private var audioPTSOrigin: Double?
     private var sampleRate = 48000.0
     private var pendingSeek: Double?
     private(set) var dropBefore = 0.0
@@ -139,6 +141,9 @@ final class PlaybackSession: @unchecked Sendable {
         currentTime = clamped
         timeAnchor = clamped
         hostAnchor = CACurrentMediaTime()
+        lock.lock()
+        audioPTSOrigin = nil
+        lock.unlock()
         onMain {
             self.audioNode?.stop()
             if self.transport == .playing {
@@ -161,8 +166,9 @@ final class PlaybackSession: @unchecked Sendable {
         seekEpoch += 1
         lock.unlock()
         onMain {
-            self.clockTimer?.invalidate()
-            self.clockTimer = nil
+            self.displayLink?.invalidate()
+            self.displayLink = nil
+            self.displayTarget = nil
             self.audioNode?.stop()
             self.audioEngine?.stop()
             self.audioEngine = nil
@@ -179,22 +185,26 @@ final class PlaybackSession: @unchecked Sendable {
         videoFrames.removeAll()
         pendingSeek = nil
         dropBefore = 0
+        audioPTSOrigin = nil
         lock.unlock()
         currentTime = 0
         duration = 0
     }
 
     private func startClock() {
-        if clockTimer != nil { return }
-        lastUIPublish = 0
-        let timer = Timer(timeInterval: Timing.displayInterval, repeats: true) { [weak self] _ in
-            self?.displayTick()
+        onMain {
+            if self.displayLink != nil { return }
+            self.lastUIPublish = 0
+            let target = DisplayTickTarget(session: self)
+            guard let screen = NSScreen.main else { return }
+            let link = screen.displayLink(target: target, selector: #selector(DisplayTickTarget.tick))
+            link.add(to: .main, forMode: .common)
+            self.displayTarget = target
+            self.displayLink = link
         }
-        RunLoop.main.add(timer, forMode: .common)
-        clockTimer = timer
     }
 
-    private func displayTick() {
+    fileprivate func displayTick() {
         guard transport == .playing else { return }
         let now = mediaTime()
         currentTime = now
@@ -287,6 +297,8 @@ final class PlaybackSession: @unchecked Sendable {
         let upscaler = pipeline.upscaler
         enhanceLock.unlock()
 
+        let interval = PipelineMetrics.enhance.beginInterval("enhance")
+        defer { PipelineMetrics.enhance.endInterval("enhance", interval) }
         let start = CACurrentMediaTime()
         let mode = runtime.active
         let interpolated = runtime.process(frame)
@@ -362,17 +374,49 @@ final class PlaybackSession: @unchecked Sendable {
             left[i] = packet.pcm[i * 2]
             right[i] = packet.pcm[i * 2 + 1]
         }
+        lock.lock()
+        if audioPTSOrigin == nil {
+            audioPTSOrigin = packet.pts
+        }
+        lock.unlock()
         node.scheduleBuffer(buffer)
     }
 
     private func mediaTime() -> Double {
-        MediaClock.now(
+        lock.lock()
+        let origin = audioPTSOrigin
+        lock.unlock()
+        if hasAudio, transport == .playing, let origin, let node = audioNode,
+           let nodeTime = node.lastRenderTime,
+           let playerTime = node.playerTime(forNodeTime: nodeTime),
+           playerTime.sampleRate > 0 {
+            return MediaClock.fromAudio(
+                origin: origin,
+                sampleOrigin: 0,
+                sampleTime: playerTime.sampleTime,
+                sampleRate: playerTime.sampleRate,
+                duration: duration
+            )
+        }
+        return MediaClock.now(
             paused: transport != .playing,
             frozen: currentTime,
             anchor: timeAnchor,
             elapsed: CACurrentMediaTime() - hostAnchor,
             duration: duration
         )
+    }
+}
+
+private final class DisplayTickTarget: NSObject {
+    weak var session: PlaybackSession?
+
+    init(session: PlaybackSession) {
+        self.session = session
+    }
+
+    @objc func tick() {
+        session?.displayTick()
     }
 }
 
@@ -386,7 +430,7 @@ enum VideoDisplay {
         horizon: Double = 2.0
     ) -> VideoFrame? {
         guard ready else { return nil }
-        while frames.count > 1, let first = frames.first, first.pts < now - late {
+        while let first = frames.first, first.pts < now - late {
             frames.removeFirst()
         }
         while let first = frames.first, first.pts > now + horizon {

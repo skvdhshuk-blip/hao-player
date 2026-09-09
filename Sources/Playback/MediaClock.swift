@@ -7,4 +7,15 @@ enum MediaClock {
         }
         return clipped
     }
+
+    static func fromAudio(
+        origin: Double,
+        sampleOrigin: Int64,
+        sampleTime: Int64,
+        sampleRate: Double,
+        duration: Double
+    ) -> Double {
+        let elapsed = sampleRate > 0 ? Double(sampleTime - sampleOrigin) / sampleRate : 0
+        return now(paused: false, frozen: origin, anchor: origin, elapsed: elapsed, duration: duration)
+    }
 }

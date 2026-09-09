@@ -17,6 +17,7 @@ struct PlayerChrome: View {
             .buttonStyle(.plain)
             .focusable(false)
             .help("空格暂停或继续")
+            .accessibilityLabel(engine.isPlaying ? "暂停" : "播放")
 
             Text(Self.clock(isScrubbing ? sliderTime : engine.currentTime))
                 .font(.system(.caption, design: .monospaced))
@@ -29,9 +30,11 @@ struct PlayerChrome: View {
             ) { editing in
                 if editing {
                     isScrubbing = true
+                    engine.isScrubbing = true
                 } else if isScrubbing {
                     engine.seek(to: sliderTime)
                     isScrubbing = false
+                    engine.isScrubbing = false
                 }
             }
             .onAppear {
@@ -42,6 +45,7 @@ struct PlayerChrome: View {
                     sliderTime = time
                 }
             }
+            .accessibilityLabel("播放进度")
 
             Text(Self.clock(engine.duration))
                 .font(.system(.caption, design: .monospaced))
@@ -52,6 +56,7 @@ struct PlayerChrome: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .help("官方 Fast A 超分。关闭则源分辨率直通。")
+                .accessibilityLabel("Anime4K 超分")
 
             Picker("流畅档", selection: $engine.settings.interpolation) {
                 Text("关").tag(InterpolationMode.off)
@@ -61,6 +66,18 @@ struct PlayerChrome: View {
             .pickerStyle(.segmented)
             .controlSize(.mini)
             .help("快是系统低延迟补帧，高质量是 IFRNet。")
+            .accessibilityLabel("流畅档")
+
+            Button {
+                engine.toggleFullScreen()
+            } label: {
+                Image(systemName: engine.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .help("全屏")
+            .accessibilityLabel(engine.isFullScreen ? "退出全屏" : "全屏")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

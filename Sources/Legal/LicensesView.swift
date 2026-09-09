@@ -23,7 +23,7 @@ struct LicensesView: View {
 
     本应用动态链接 FFmpeg 7.1.1，FFmpeg 部分以 LGPL-2.1-or-later 授权（构建未启用 --enable-gpl / --enable-nonfree / --enable-version3）。上游：https://ffmpeg.org/
 
-    书面提供（自本版本发布起三年）：可应要求提供该版本的目标文件和链接输入，以便用修改过的 LGPL 库重新链接。请联系应用开发者。构建脚本见仓库 scripts/build_ffmpeg_lgpl.sh。
+    书面提供（自本版本发布起三年）：可应要求提供该版本的目标文件和链接输入，以便用修改过的 LGPL 库重新链接。请联系 support@hao.app。构建脚本见仓库 scripts/build_ffmpeg_lgpl.sh。
 
     本应用嵌入 Anime4K（Fast Mode A）着色器，MIT License，Copyright (c) 2019-2021 bloc97。上游：https://github.com/bloc97/Anime4K
 

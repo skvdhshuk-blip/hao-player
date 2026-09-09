@@ -13,6 +13,16 @@ final class SourceRouterTests: XCTestCase {
         XCTAssertEqual(SourceRouter.kind(for: URL(fileURLWithPath: "/tmp/a.webm")), .ffmpeg)
         XCTAssertEqual(SourceRouter.kind(for: URL(fileURLWithPath: "/tmp/a.avi")), .ffmpeg)
         XCTAssertEqual(SourceRouter.kind(for: URL(fileURLWithPath: "/tmp/a.ts")), .ffmpeg)
+        XCTAssertEqual(SourceRouter.kind(for: URL(fileURLWithPath: "/tmp/a.flv")), .ffmpeg)
+        XCTAssertEqual(SourceRouter.kind(for: URL(fileURLWithPath: "/tmp/a.FLV")), .ffmpeg)
+    }
+
+    func testFlvMagicUsesFFmpeg() throws {
+        let url = try writeFixture(
+            name: ".com.apple.Foundation.NSItemProvider.flv.tmp",
+            bytes: [0x46, 0x4C, 0x56, 0x01, 0x05, 0x00, 0x00, 0x00]
+        )
+        XCTAssertEqual(SourceRouter.kind(for: url), .ffmpeg)
     }
 
     func testItemProviderTmpWithEbmlUsesFFmpeg() throws {
@@ -34,6 +44,12 @@ final class SourceRouterTests: XCTestCase {
             bytes: bytes
         )
         XCTAssertEqual(SourceRouter.kind(for: url), .avFoundation)
+    }
+
+    func testUnsupportedMessageListsFlv() {
+        let text = SourceError.unsupported("clip.wmv").localizedDescription ?? ""
+        XCTAssertTrue(text.contains("flv"))
+        XCTAssertTrue(text.contains("mkv"))
     }
 
     func testUnknownTmpStaysUnsupported() throws {

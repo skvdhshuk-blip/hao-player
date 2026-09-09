@@ -1,4 +1,3 @@
-import CoreImage
 import CoreVideo
 import Foundation
 import Metal
@@ -42,14 +41,14 @@ final class Anime4KProcessor: FrameProcessor {
         Pass(name: "a4k_02_Anime4K_v4_0_De_Ring_Clamp", binds: ["MAIN", "STATSMAX"], save: "FINAL", scale: 2),
     ]
 
+    private static let poolSize = 16
+
     private let lock = NSLock()
     private var failed = false
-    private var device: MTLDevice?
-    private var queue: MTLCommandQueue?
-    private var library: MTLLibrary?
     private var pipelines: [String: MTLComputePipelineState] = [:]
-    private var ciContext: CIContext?
     private var textures: [String: MTLTexture] = [:]
+    private var outputPool: [CVPixelBuffer] = []
+    private var outputIndex = 0
     private var cachedWidth = 0
     private var cachedHeight = 0
 
@@ -77,28 +76,25 @@ final class Anime4KProcessor: FrameProcessor {
     private func enhance(_ input: CVPixelBuffer) throws -> CVPixelBuffer {
         lock.lock()
         defer { lock.unlock() }
-        let gpu = try readyGPU()
+        try readyPipelines()
+        let gpu = GPUContext.shared
         let width = CVPixelBufferGetWidth(input)
         let height = CVPixelBufferGetHeight(input)
         guard width > 1, height > 1 else { throw Anime4KError.encodeFailed }
         if width != cachedWidth || height != cachedHeight {
             textures.removeAll()
+            outputPool.removeAll()
+            outputIndex = 0
             cachedWidth = width
             cachedHeight = height
         }
 
+        guard let command = gpu.queue.makeCommandBuffer() else { throw Anime4KError.encodeFailed }
         let source = try texture("SRC", width: width, height: height)
-        let image = CIImage(cvPixelBuffer: input)
-        gpu.ci.render(
-            image,
-            to: source,
-            commandBuffer: nil,
-            bounds: CGRect(x: 0, y: 0, width: width, height: height),
-            colorSpace: CGColorSpaceCreateDeviceRGB()
-        )
+        var mapped: [MappedTexture] = []
+        try upload(input, to: source, command: command, keep: &mapped)
         var slots: [String: MTLTexture] = ["MAIN": source]
 
-        guard let command = gpu.queue.makeCommandBuffer() else { throw Anime4KError.encodeFailed }
         for pass in Self.passes {
             let destW = width * pass.scale
             let destH = height * pass.scale
@@ -111,74 +107,124 @@ final class Anime4KProcessor: FrameProcessor {
                 encoder.setTexture(tex, index: index)
             }
             encoder.setTexture(dest, index: pass.binds.count)
-            let w = pipeline.threadExecutionWidth
-            let h = max(pipeline.maxTotalThreadsPerThreadgroup / w, 1)
-            encoder.dispatchThreads(
-                MTLSize(width: destW, height: destH, depth: 1),
-                threadsPerThreadgroup: MTLSize(width: w, height: h, depth: 1)
-            )
+            dispatch(encoder, pipeline: pipeline, width: destW, height: destH)
             encoder.endEncoding()
             slots[pass.save] = dest
         }
+
+        guard let final = slots["FINAL"] else { throw Anime4KError.outputFailed }
+        let output = try nextOutput(width: width * 2, height: height * 2)
+        guard let dest = gpu.map(output, plane: 0, format: .bgra8Unorm) else {
+            throw Anime4KError.outputFailed
+        }
+        mapped.append(dest)
+        guard let encoder = command.makeComputeCommandEncoder() else { throw Anime4KError.encodeFailed }
+        encoder.setComputePipelineState(gpu.rgbaToBGRA)
+        encoder.setTexture(final, index: 0)
+        encoder.setTexture(dest.metal, index: 1)
+        dispatch(encoder, pipeline: gpu.rgbaToBGRA, width: dest.metal.width, height: dest.metal.height)
+        encoder.endEncoding()
         command.commit()
         command.waitUntilCompleted()
+        _ = mapped
         if let error = command.error {
             throw error
         }
-        guard let final = slots["FINAL"] else { throw Anime4KError.outputFailed }
-        return try makePixelBuffer(from: final, ci: gpu.ci)
+        return output
     }
 
-    private struct GPU {
-        let device: MTLDevice
-        let queue: MTLCommandQueue
-        let ci: CIContext
+    private func upload(
+        _ input: CVPixelBuffer,
+        to dest: MTLTexture,
+        command: MTLCommandBuffer,
+        keep: inout [MappedTexture]
+    ) throws {
+        let gpu = GPUContext.shared
+        let format = CVPixelBufferGetPixelFormatType(input)
+        if format == kCVPixelFormatType_32BGRA {
+            guard let src = gpu.map(input, plane: 0, format: .bgra8Unorm) else { throw Anime4KError.encodeFailed }
+            keep.append(src)
+            guard let encoder = command.makeComputeCommandEncoder() else { throw Anime4KError.encodeFailed }
+            encoder.setComputePipelineState(gpu.bgraToRGBA)
+            encoder.setTexture(src.metal, index: 0)
+            encoder.setTexture(dest, index: 1)
+            dispatch(encoder, pipeline: gpu.bgraToRGBA, width: dest.width, height: dest.height)
+            encoder.endEncoding()
+            return
+        }
+        if GPUContext.isBiplanar420(format) {
+            guard let y = gpu.map(input, plane: 0, format: .r8Unorm),
+                  let cbcr = gpu.map(input, plane: 1, format: .rg8Unorm) else {
+                throw Anime4KError.encodeFailed
+            }
+            keep.append(y)
+            keep.append(cbcr)
+            var range: Float = GPUContext.isFullRange420(format) ? 1 : 0
+            guard let encoder = command.makeComputeCommandEncoder() else { throw Anime4KError.encodeFailed }
+            encoder.setComputePipelineState(gpu.ycbcrToRGBA)
+            encoder.setTexture(y.metal, index: 0)
+            encoder.setTexture(cbcr.metal, index: 1)
+            encoder.setTexture(dest, index: 2)
+            encoder.setBytes(&range, length: MemoryLayout<Float>.stride, index: 0)
+            dispatch(encoder, pipeline: gpu.ycbcrToRGBA, width: dest.width, height: dest.height)
+            encoder.endEncoding()
+            return
+        }
+        let bgra = try PixelBufferIO.bgra(input)
+        try upload(bgra, to: dest, command: command, keep: &keep)
     }
 
-    private func readyGPU() throws -> GPU {
-        if let device, let queue, let ciContext, !pipelines.isEmpty {
-            return GPU(device: device, queue: queue, ci: ciContext)
-        }
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let queue = device.makeCommandQueue(),
-              let library = device.makeDefaultLibrary() else {
-            throw Anime4KError.noMetal
-        }
+    private func readyPipelines() throws {
+        if !pipelines.isEmpty { return }
+        let gpu = GPUContext.shared
         var built: [String: MTLComputePipelineState] = [:]
         for pass in Self.passes {
-            guard let fn = library.makeFunction(name: pass.name) else {
+            guard let fn = gpu.library.makeFunction(name: pass.name) else {
                 throw Anime4KError.missingKernel(pass.name)
             }
-            built[pass.name] = try device.makeComputePipelineState(function: fn)
+            built[pass.name] = try gpu.device.makeComputePipelineState(function: fn)
         }
-        let ci = CIContext(mtlDevice: device, options: [.workingColorSpace: NSNull()])
-        self.device = device
-        self.queue = queue
-        self.library = library
-        self.pipelines = built
-        self.ciContext = ci
-        return GPU(device: device, queue: queue, ci: ci)
+        pipelines = built
     }
 
     private func texture(_ key: String, width: Int, height: Int) throws -> MTLTexture {
         if let existing = textures[key], existing.width == width, existing.height == height {
             return existing
         }
-        guard let device else { throw Anime4KError.noMetal }
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba16Float,
             width: width,
             height: height,
             mipmapped: false
         )
-        desc.usage = [.shaderRead, .shaderWrite, .renderTarget]
-        desc.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: desc) else { throw Anime4KError.encodeFailed }
+        desc.usage = [.shaderRead, .shaderWrite]
+        desc.storageMode = .private
+        guard let texture = GPUContext.shared.device.makeTexture(descriptor: desc) else {
+            throw Anime4KError.encodeFailed
+        }
         textures[key] = texture
         return texture
     }
 
-    private func makePixelBuffer(from texture: MTLTexture, ci: CIContext) throws -> CVPixelBuffer {
+    private func nextOutput(width: Int, height: Int) throws -> CVPixelBuffer {
+        if let first = outputPool.first,
+           CVPixelBufferGetWidth(first) == width,
+           CVPixelBufferGetHeight(first) == height {
+            let buffer = outputPool[outputIndex % outputPool.count]
+            outputIndex += 1
+            return buffer
+        }
+        var pool: [CVPixelBuffer] = []
+        pool.reserveCapacity(Self.poolSize)
+        for _ in 0..<Self.poolSize {
+            pool.append(try makeBGRA(width: width, height: height))
+        }
+        outputPool = pool
+        outputIndex = 1
+        return pool[0]
+    }
+
+    private func makeBGRA(width: Int, height: Int) throws -> CVPixelBuffer {
         var buffer: CVPixelBuffer?
         let attrs: [CFString: Any] = [
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
@@ -186,22 +232,22 @@ final class Anime4KProcessor: FrameProcessor {
         ]
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
-            texture.width,
-            texture.height,
+            width,
+            height,
             kCVPixelFormatType_32BGRA,
             attrs as CFDictionary,
             &buffer
         )
         guard status == kCVReturnSuccess, let buffer else { throw Anime4KError.outputFailed }
-        guard let image = CIImage(mtlTexture: texture, options: [.colorSpace: CGColorSpaceCreateDeviceRGB()]) else {
-            throw Anime4KError.outputFailed
-        }
-        ci.render(
-            image,
-            to: buffer,
-            bounds: CGRect(x: 0, y: 0, width: texture.width, height: texture.height),
-            colorSpace: CGColorSpaceCreateDeviceRGB()
-        )
         return buffer
+    }
+
+    private func dispatch(_ encoder: MTLComputeCommandEncoder, pipeline: MTLComputePipelineState, width: Int, height: Int) {
+        let w = pipeline.threadExecutionWidth
+        let h = max(pipeline.maxTotalThreadsPerThreadgroup / w, 1)
+        encoder.dispatchThreads(
+            MTLSize(width: width, height: height, depth: 1),
+            threadsPerThreadgroup: MTLSize(width: w, height: h, depth: 1)
+        )
     }
 }

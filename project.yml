@@ -8,7 +8,7 @@ options:
 settings:
   base:
     PRODUCT_BUNDLE_IDENTIFIER: app.hao.HaoPlayer
-    MARKETING_VERSION: 0.1.0
+    MARKETING_VERSION: 1.0.0
     CURRENT_PROJECT_VERSION: 1
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
@@ -59,11 +59,14 @@ targets:
           DIST="${SRCROOT}/Vendor/FFmpeg/dist/lib"
           mkdir -p "$DEST"
           for f in "$DIST"/*.dylib; do
-            if [ ! -L "$f" ]; then
-              cp -f "$f" "$DEST/$(basename "$f")"
-              if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ] && [ "${EXPANDED_CODE_SIGN_IDENTITY}" != "-" ]; then
-                codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "$DEST/$(basename "$f")"
-              fi
+            name="$(basename "$f")"
+            if [ -L "$f" ]; then
+              ln -sfn "$(readlink "$f")" "$DEST/$name"
+              continue
+            fi
+            cp -f "$f" "$DEST/$name"
+            if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ] && [ "${EXPANDED_CODE_SIGN_IDENTITY}" != "-" ]; then
+              codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "$DEST/$name"
             fi
           done
     entitlements:

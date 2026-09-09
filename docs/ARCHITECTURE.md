@@ -36,8 +36,8 @@
 ## 实现分期
 
 1. **已完成**：沙盒工程 + 打开/拖放/续播 + 关窗可再开 + Licenses。
-2. **已完成**：LGPL FFmpeg 共享库 + `HaoReader` C 盒 + mkv/webm/avi/ts。
-3. **已完成**：统一 `VideoSource.pull()` + `PlaybackSession` + Metal 直通出画（mp4/mov/m4v 与 mkv/webm/avi/ts 同一条时钟）。
+2. **已完成**：LGPL FFmpeg 共享库 + `HaoReader` C 盒 + mkv/webm/avi/ts/flv。
+3. **已完成**：统一 `VideoSource.pull()` + `PlaybackSession` + Metal 直通出画（mp4/mov/m4v 与 mkv/webm/avi/ts/flv 同一条时钟）。
 4. **已完成**：Anime4K Fast Mode A（`PlaybackPipeline` 超分，失败直通）。
 5. **已完成**：流畅档三态——关 / 快（`VTLowLatencyFrameInterpolation`） / 高质量（自维护 IFRNet-S）。皆源分辨率时间 2×，先于 Anime4K。过载：高质量→快→关。见 `docs/superpowers/specs/2026-09-09-interpolation-smooth-design.md`。禁止 SVP、完整 RIFE 4.25、ncnn-Vulkan。
 

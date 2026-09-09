@@ -13,7 +13,7 @@ enum SourceError: LocalizedError {
         case .emptyDrop:
             return "没有可打开的文件。"
         case .unsupported(let name):
-            return "当前版本暂不支持「\(name)」。可播 mp4 / mov / m4v / mkv / webm / avi。"
+            return "当前版本暂不支持「\(name)」。可播 mp4 / mov / m4v / mkv / webm / avi / ts / flv。"
         case .notPlayable:
             return "系统无法播放该文件。"
         case .decodeFailed(let detail):

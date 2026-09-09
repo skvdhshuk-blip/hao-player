@@ -158,7 +158,7 @@ final class VTInterpolationProcessor: FrameProcessor {
             throw error
         }
         return VideoFrame(
-            pixelBuffer: try PixelBufferIO.isolatedBGRA(destination.pixelBuffer),
+            pixelBuffer: destination.pixelBuffer,
             pts: midPTS,
             duration: current.duration / 2
         )

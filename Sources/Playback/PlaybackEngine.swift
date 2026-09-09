@@ -15,6 +15,8 @@ final class PlaybackEngine: ObservableObject, @unchecked Sendable {
         didSet { session.applyEnhancements(settings) }
     }
     @Published var errorMessage: String?
+    @Published var isScrubbing = false
+    @Published private(set) var isFullScreen = false
 
     let session = PlaybackSession()
 
@@ -34,6 +36,22 @@ final class PlaybackEngine: ObservableObject, @unchecked Sendable {
             self?.isPlaying = false
         }
         session.applyEnhancements(settings)
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didEnterFullScreenNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard self?.isPlayerWindow(note.object) == true else { return }
+            self?.isFullScreen = true
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didExitFullScreenNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard self?.isPlayerWindow(note.object) == true else { return }
+            self?.isFullScreen = false
+        }
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
@@ -106,6 +124,21 @@ final class PlaybackEngine: ObservableObject, @unchecked Sendable {
 
     func skip(by seconds: Double) {
         seek(to: currentTime + seconds)
+    }
+
+    func toggleFullScreen() {
+        playerWindow()?.toggleFullScreen(nil)
+    }
+
+    private func playerWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            window.identifier?.rawValue == WindowID.player || window.title == "Hao Player" || window.title == title
+        }
+    }
+
+    private func isPlayerWindow(_ object: Any?) -> Bool {
+        guard let window = object as? NSWindow else { return false }
+        return window.identifier?.rawValue == WindowID.player || window.title == "Hao Player" || window.title == title
     }
 
     func persistResume() {

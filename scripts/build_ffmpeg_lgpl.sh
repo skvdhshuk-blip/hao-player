@@ -59,8 +59,8 @@ cd "$SRC_DIR"
   --enable-hwaccel=mpeg4_videotoolbox \
   --enable-hwaccel=vp9_videotoolbox \
   --enable-hwaccel=av1_videotoolbox \
-  --enable-decoder=h264,hevc,mpeg4,vp8,vp9,av1,aac,flac,opus,vorbis,mp3,ac3,eac3,pcm_s16le,pcm_s24le,alac \
-  --enable-demuxer=matroska,mov,ogg,flac,mpegts,avi,wav,mp3,aac \
+  --enable-decoder=h264,hevc,mpeg4,flv,vp8,vp9,av1,aac,flac,opus,vorbis,mp3,ac3,eac3,pcm_s16le,pcm_s24le,alac \
+  --enable-demuxer=matroska,mov,ogg,flac,mpegts,avi,flv,wav,mp3,aac \
   --enable-parser=h264,hevc,aac,opus,vorbis,flac,vp8,vp9,av1 \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,extract_extradata \
   --extra-cflags="-mmacosx-version-min=26.0 -arch arm64" \
@@ -77,17 +77,27 @@ import os, subprocess
 from pathlib import Path
 prefix = Path(os.environ["PREFIX"])
 lib = prefix / "lib"
-dylibs = [p for p in lib.glob("*.dylib") if p.is_file() and not p.is_symlink()]
-for dylib in dylibs:
-    name = dylib.name
-    subprocess.check_call(["install_name_tool", "-id", f"@rpath/{name}", str(dylib)])
+alias = {}
+for link in lib.glob("*.dylib"):
+    if link.is_symlink():
+        alias[link.name] = Path(os.readlink(link)).name
+for dylib in lib.glob("*.dylib"):
+    if dylib.is_symlink():
+        continue
+    subprocess.check_call(["install_name_tool", "-id", f"@rpath/{dylib.name}", str(dylib)])
     out = subprocess.check_output(["otool", "-L", str(dylib)], text=True)
     for line in out.splitlines()[1:]:
-        path = line.strip().split(" ", 1)[0]
-        if path.startswith(str(prefix / "lib")):
-            dep = os.path.basename(path)
-            subprocess.check_call(["install_name_tool", "-change", path, f"@rpath/{dep}", str(dylib)])
-print("rewrote install names to @rpath")
+        old = line.strip().split(" ", 1)[0]
+        name = os.path.basename(old)
+        if name in alias:
+            new = f"@rpath/{alias[name]}"
+        elif old.startswith(str(prefix / "lib")):
+            new = f"@rpath/{name}"
+        else:
+            continue
+        if old != new:
+            subprocess.check_call(["install_name_tool", "-change", old, new, str(dylib)])
+print("rewrote install names to @rpath versioned dylibs")
 PY
 
 # configure 日志里必须能搜到这些否决项，供上架材料核对。

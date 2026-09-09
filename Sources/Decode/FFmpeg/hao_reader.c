@@ -143,6 +143,17 @@ static int hao_make_bgra(HaoReader *reader, AVFrame *src, CVPixelBufferRef *out)
     return 0;
 }
 
+static double hao_pts_seconds(const HaoReader *reader, const AVStream *stream, int64_t pts) {
+    if (pts == AV_NOPTS_VALUE) {
+        return 0;
+    }
+    double t = pts * av_q2d(stream->time_base);
+    if (reader->fmt && reader->fmt->start_time != AV_NOPTS_VALUE) {
+        t -= (double)reader->fmt->start_time / (double)AV_TIME_BASE;
+    }
+    return t < 0 ? 0 : t;
+}
+
 static int hao_fill_video(HaoReader *reader, HaoVideoFrame *video) {
     AVStream *stream = reader->fmt->streams[reader->video_stream];
     double tb = av_q2d(stream->time_base);
@@ -150,7 +161,7 @@ static int hao_fill_video(HaoReader *reader, HaoVideoFrame *video) {
     if (pts == AV_NOPTS_VALUE) {
         pts = reader->frame->pts;
     }
-    video->pts = pts == AV_NOPTS_VALUE ? 0 : pts * tb;
+    video->pts = hao_pts_seconds(reader, stream, pts);
     video->duration = reader->frame->duration > 0 ? reader->frame->duration * tb : av_q2d(stream->avg_frame_rate) > 0 ? 1.0 / av_q2d(stream->avg_frame_rate) : 0.04;
 
     if (reader->frame->format == AV_PIX_FMT_VIDEOTOOLBOX && reader->frame->data[3]) {
@@ -214,7 +225,7 @@ static int hao_fill_audio(HaoReader *reader, HaoAudioFrame *audio) {
     audio->pcm = pcm;
     audio->frameCount = converted;
     audio->sampleRate = reader->audio_rate;
-    audio->pts = pts == AV_NOPTS_VALUE ? 0 : pts * av_q2d(stream->time_base);
+    audio->pts = hao_pts_seconds(reader, stream, pts);
     return 0;
 }
 
@@ -318,6 +329,9 @@ int HaoReaderSeek(void *raw, double seconds) {
         return AVERROR(EINVAL);
     }
     int64_t ts = (int64_t)(seconds * AV_TIME_BASE);
+    if (reader->fmt->start_time != AV_NOPTS_VALUE) {
+        ts += reader->fmt->start_time;
+    }
     int err = avformat_seek_file(reader->fmt, -1, INT64_MIN, ts, INT64_MAX, 0);
     if (err < 0) {
         hao_set_error(reader, err, NULL);

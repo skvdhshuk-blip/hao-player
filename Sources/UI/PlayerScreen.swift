@@ -1,7 +1,10 @@
+import AppKit
 import SwiftUI
 
 struct PlayerScreen: View {
     @EnvironmentObject private var engine: PlaybackEngine
+    @State private var chromeVisible = true
+    @State private var hideChromeTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -12,6 +15,13 @@ struct PlayerScreen: View {
             case .playing:
                 MetalView(presenter: engine.session.presenter)
                     .ignoresSafeArea()
+                    .onTapGesture {
+                        if showsChrome {
+                            hideChrome()
+                        } else {
+                            revealChrome()
+                        }
+                    }
             }
             FileDropCatcher(
                 onOpen: { drop in
@@ -26,9 +36,49 @@ struct PlayerScreen: View {
                 Spacer()
                 if engine.mode != .idle {
                     PlayerChrome()
+                        .opacity(showsChrome ? 1 : 0)
+                        .allowsHitTesting(showsChrome)
+                        .onHover { inside in
+                            if inside {
+                                chromeVisible = true
+                                hideChromeTask?.cancel()
+                            } else if engine.isPlaying {
+                                scheduleHideChrome()
+                            }
+                        }
+                        .onHover { inside in
+                            if inside {
+                                chromeVisible = true
+                                hideChromeTask?.cancel()
+                            } else if engine.isPlaying {
+                                scheduleHideChrome()
+                            }
+                        }
                 }
             }
         }
+        .onContinuousHover { phase in
+            if case .active = phase {
+                revealChrome()
+            }
+        }
+        .onChange(of: engine.isPlaying) { _, playing in
+            if playing {
+                revealChrome()
+            } else {
+                chromeVisible = true
+                hideChromeTask?.cancel()
+            }
+        }
+        .onChange(of: engine.isScrubbing) { _, scrubbing in
+            if scrubbing {
+                chromeVisible = true
+                hideChromeTask?.cancel()
+            } else {
+                revealChrome()
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: showsChrome)
         .frame(minWidth: 720, minHeight: 420)
         .background(WindowActionBinder())
         .onAppear {
@@ -70,7 +120,7 @@ struct PlayerScreen: View {
                 .foregroundStyle(.secondary)
             Text("打开文件或拖进来")
                 .font(.title3)
-            Text("mp4 / mov / m4v / mkv / webm / avi")
+            Text("mp4 / mov / m4v / mkv / webm / avi / ts / flv")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Button("打开…") {
@@ -79,5 +129,36 @@ struct PlayerScreen: View {
             .keyboardShortcut("o", modifiers: .command)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var showsChrome: Bool {
+        engine.mode == .idle || chromeVisible || !engine.isPlaying || engine.isScrubbing
+    }
+
+    private func revealChrome() {
+        chromeVisible = true
+        if engine.isFullScreen {
+            NSCursor.unhide()
+        }
+        scheduleHideChrome()
+    }
+
+    private func hideChrome() {
+        guard engine.isPlaying, !engine.isScrubbing else { return }
+        hideChromeTask?.cancel()
+        chromeVisible = false
+        if engine.isFullScreen {
+            NSCursor.setHiddenUntilMouseMoves(true)
+        }
+    }
+
+    private func scheduleHideChrome() {
+        hideChromeTask?.cancel()
+        guard engine.mode == .playing, engine.isPlaying, !engine.isScrubbing else { return }
+        hideChromeTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.4))
+            guard !Task.isCancelled else { return }
+            hideChrome()
+        }
     }
 }

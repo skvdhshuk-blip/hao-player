@@ -20,6 +20,10 @@ struct HaoPlayerApp: App {
                     engine.togglePlay()
                 }
                 .keyboardShortcut(.space, modifiers: [])
+                Button(engine.isFullScreen ? "退出全屏" : "全屏") {
+                    engine.toggleFullScreen()
+                }
+                .keyboardShortcut("f", modifiers: [.control, .command])
             }
             CommandGroup(after: .windowArrangement) {
                 Button("播放器") {

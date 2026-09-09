@@ -38,4 +38,12 @@ final class MediaClockTests: XCTestCase {
             accuracy: 0.0001
         )
     }
+
+    func testAudioPlayheadFollowsSampleTime() {
+        XCTAssertEqual(
+            MediaClock.fromAudio(origin: 4, sampleOrigin: 0, sampleTime: 72_000, sampleRate: 48_000, duration: 183),
+            5.5,
+            accuracy: 0.0001
+        )
+    }
 }
