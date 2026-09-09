@@ -1,0 +1,14 @@
+prefix=/Users/wh/workspace/hao-player/Vendor/FFmpeg/dist
+exec_prefix=${prefix}
+libdir=/Users/wh/workspace/hao-player/Vendor/FFmpeg/dist/lib
+includedir=/Users/wh/workspace/hao-player/Vendor/FFmpeg/dist/include
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 59.39.100
+Requires: 
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavutil 
+Libs.private: -pthread -lm -framework VideoToolbox -framework CoreFoundation -framework CoreMedia -framework CoreVideo -framework CoreServices
+Cflags: -I${includedir}

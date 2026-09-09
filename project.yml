@@ -1,0 +1,97 @@
+name: HaoPlayer
+options:
+  bundleIdPrefix: app.hao
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: zh-Hans
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: app.hao.HaoPlayer
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    ARCHS: arm64
+    EXCLUDED_ARCHS: x86_64
+    SUPPORTED_PLATFORMS: macosx
+    CODE_SIGN_ENTITLEMENTS: HaoPlayer.entitlements
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: Apple Development
+    DEVELOPMENT_TEAM: M2WM2NJP68
+    ENABLE_APP_SANDBOX: YES
+    ENABLE_HARDENED_RUNTIME: YES
+    COMBINE_HIDPI_IMAGES: YES
+targets:
+  HaoPlayer:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        excludes:
+          - "**/.gitkeep"
+      - path: Resources
+        buildPhase: resources
+        excludes:
+          - "**/.gitkeep"
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: HaoPlayer
+        PRODUCT_BUNDLE_IDENTIFIER: app.hao.HaoPlayer
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Decode/FFmpeg/HaoPlayer-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/Vendor/FFmpeg/dist/include $(SRCROOT)/Sources/Decode/FFmpeg
+        LIBRARY_SEARCH_PATHS: $(SRCROOT)/Vendor/FFmpeg/dist/lib
+        OTHER_LDFLAGS: -lavformat -lavcodec -lavutil -lswscale -lswresample
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
+    postCompileScripts:
+      - name: Embed FFmpeg dylibs
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          DEST="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+          DIST="${SRCROOT}/Vendor/FFmpeg/dist/lib"
+          mkdir -p "$DEST"
+          for f in "$DIST"/*.dylib; do
+            if [ ! -L "$f" ]; then
+              cp -f "$f" "$DEST/$(basename "$f")"
+              if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ] && [ "${EXPANDED_CODE_SIGN_IDENTITY}" != "-" ]; then
+                codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --timestamp=none "$DEST/$(basename "$f")"
+              fi
+            fi
+          done
+    entitlements:
+      path: HaoPlayer.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.files.user-selected.read-only: true
+        com.apple.security.files.bookmarks.app-scope: true
+  HaoPlayerTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests
+    dependencies:
+      - target: HaoPlayer
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.hao.HaoPlayerTests
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: Apple Development
+        DEVELOPMENT_TEAM: M2WM2NJP68
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/HaoPlayer.app/Contents/MacOS/HaoPlayer"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  HaoPlayer:
+    build:
+      targets:
+        HaoPlayer: all
+        HaoPlayerTests: [test]
+    test:
+      targets:
+        - HaoPlayerTests
