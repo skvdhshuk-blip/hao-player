@@ -8,6 +8,9 @@ struct HaoPlayerApp: App {
         Window("Hao Player", id: WindowID.player) {
             PlayerScreen()
                 .environmentObject(engine)
+#if ENHANCEMENT_ACCEPTANCE
+                .onAppear { EnhancementAcceptance.shared.start() }
+#endif
         }
         .defaultSize(width: 960, height: 540)
         .commands {
@@ -20,6 +23,12 @@ struct HaoPlayerApp: App {
                     engine.togglePlay()
                 }
                 .keyboardShortcut(.space, modifiers: [])
+                Button("后退 5 秒") { engine.skip(by: -5) }
+                    .keyboardShortcut(.leftArrow, modifiers: [])
+                    .disabled(engine.mode == .idle)
+                Button("前进 5 秒") { engine.skip(by: 5) }
+                    .keyboardShortcut(.rightArrow, modifiers: [])
+                    .disabled(engine.mode == .idle)
                 Button(engine.isFullScreen ? "退出全屏" : "全屏") {
                     engine.toggleFullScreen()
                 }

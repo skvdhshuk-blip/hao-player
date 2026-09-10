@@ -1,0 +1,28 @@
+Executable=/private/tmp/hao-enhancement-gate/Build/Products/Release/HaoPlayer.app/Contents/MacOS/HaoPlayer
+Identifier=app.hao.HaoPlayer
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20500 size=3005 flags=0x10000(runtime) hashes=83+7 location=embedded
+VersionPlatform=1
+VersionMin=1703936
+VersionSDK=1705216
+Hash type=sha256 size=32
+CandidateCDHash sha256=d5ccdf1247a447e3400b597a9c10bf4e95f7f87c
+CandidateCDHashFull sha256=d5ccdf1247a447e3400b597a9c10bf4e95f7f87cb68aa17199090d66b940d6ad
+Hash choices=sha256
+CMSDigest=d5ccdf1247a447e3400b597a9c10bf4e95f7f87cb68aa17199090d66b940d6ad
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=442368
+Executable Segment flags=0x1
+Page size=16384
+CDHash=d5ccdf1247a447e3400b597a9c10bf4e95f7f87c
+Signature size=4773
+Authority=Apple Development: Hao Wang (6K2VSAQY6D)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+Signed Time=Sep 9, 2026 at 22:41:59
+Info.plist entries=30
+TeamIdentifier=M2WM2NJP68
+Runtime Version=26.5.0
+Sealed Resources version=2 rules=13 files=29
+Internal requirements count=1 size=176

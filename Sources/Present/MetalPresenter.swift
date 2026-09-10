@@ -27,6 +27,8 @@ final class MetalPresenter {
         metalLayer.device = gpu.device
         metalLayer.pixelFormat = .bgra8Unorm
         metalLayer.framebufferOnly = true
+        metalLayer.isOpaque = true
+        metalLayer.displaySyncEnabled = true
         metalLayer.contentsGravity = .resize
 
         guard let vertex = gpu.library.makeFunction(name: "present_vertex"),
@@ -62,23 +64,23 @@ final class MetalPresenter {
     }
 
     @discardableResult
-    func draw(_ buffer: CVPixelBuffer) -> Bool {
+    func draw(_ buffer: CVPixelBuffer, onPresented: (@Sendable (Double, Double, Error?) -> Void)? = nil) -> Bool {
         let interval = PipelineMetrics.present.beginInterval("present")
         defer { PipelineMetrics.present.endInterval("present", interval) }
         let format = CVPixelBufferGetPixelFormatType(buffer)
         if format == kCVPixelFormatType_32BGRA {
-            return drawBGRA(buffer)
+            return drawBGRA(buffer, onPresented: onPresented)
         }
         if GPUContext.isBiplanar420(format) {
-            return drawYCbCr(buffer, fullRange: GPUContext.isFullRange420(format))
+            return drawYCbCr(buffer, fullRange: GPUContext.isFullRange420(format), onPresented: onPresented)
         }
         guard let bgra = try? PixelBufferIO.bgra(buffer) else { return false }
-        return drawBGRA(bgra)
+        return drawBGRA(bgra, onPresented: onPresented)
     }
 
-    private func drawBGRA(_ buffer: CVPixelBuffer) -> Bool {
+    private func drawBGRA(_ buffer: CVPixelBuffer, onPresented: (@Sendable (Double, Double, Error?) -> Void)?) -> Bool {
         guard let mapped = gpu.map(buffer, plane: 0, format: .bgra8Unorm) else { return false }
-        return encode(width: mapped.metal.width, height: mapped.metal.height, keep: [mapped]) { encoder, uniforms in
+        return encode(width: mapped.metal.width, height: mapped.metal.height, keep: [mapped], onPresented: onPresented) { encoder, uniforms in
             encoder.setRenderPipelineState(bgraPipeline)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<PresentUniforms>.stride, index: 0)
             encoder.setFragmentTexture(mapped.metal, index: 0)
@@ -86,7 +88,7 @@ final class MetalPresenter {
         }
     }
 
-    private func drawYCbCr(_ buffer: CVPixelBuffer, fullRange: Bool) -> Bool {
+    private func drawYCbCr(_ buffer: CVPixelBuffer, fullRange: Bool, onPresented: (@Sendable (Double, Double, Error?) -> Void)?) -> Bool {
         guard let y = gpu.map(buffer, plane: 0, format: .r8Unorm),
               let cbcr = gpu.map(buffer, plane: 1, format: .rg8Unorm) else {
             return false
@@ -95,7 +97,7 @@ final class MetalPresenter {
         return encode(
             width: CVPixelBufferGetWidth(buffer),
             height: CVPixelBufferGetHeight(buffer),
-            keep: [y, cbcr]
+            keep: [y, cbcr], onPresented: onPresented
         ) { encoder, uniforms in
             encoder.setRenderPipelineState(ycbcrPipeline)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<PresentUniforms>.stride, index: 0)
@@ -110,6 +112,7 @@ final class MetalPresenter {
         width: Int,
         height: Int,
         keep: [MappedTexture],
+        onPresented: (@Sendable (Double, Double, Error?) -> Void)?,
         body: (MTLRenderCommandEncoder, inout PresentUniforms) -> Void
     ) -> Bool {
         let drawableSize = metalLayer.drawableSize
@@ -136,11 +139,21 @@ final class MetalPresenter {
         )
         body(encoder, &uniforms)
         encoder.endEncoding()
-        command.addCompletedHandler { _ in
+        command.addCompletedHandler { completed in
             _ = keep
+            if let error = completed.error { onPresented?(0, 0, error) }
         }
-        command.present(drawable)
-        command.commit()
+        drawable.addPresentedHandler { presented in
+            onPresented?(presented.presentedTime, max(0, command.gpuEndTime - command.gpuStartTime), nil)
+        }
+        if metalLayer.presentsWithTransaction {
+            command.commit()
+            command.waitUntilScheduled()
+            drawable.present()
+        } else {
+            command.present(drawable)
+            command.commit()
+        }
         return true
     }
 }

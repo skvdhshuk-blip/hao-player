@@ -41,14 +41,11 @@ final class Anime4KProcessor: FrameProcessor {
         Pass(name: "a4k_02_Anime4K_v4_0_De_Ring_Clamp", binds: ["MAIN", "STATSMAX"], save: "FINAL", scale: 2),
     ]
 
-    private static let poolSize = 16
-
     private let lock = NSLock()
     private var failed = false
     private var pipelines: [String: MTLComputePipelineState] = [:]
     private var textures: [String: MTLTexture] = [:]
-    private var outputPool: [CVPixelBuffer] = []
-    private var outputIndex = 0
+    private var outputPool: CVPixelBufferPool?
     private var cachedWidth = 0
     private var cachedHeight = 0
 
@@ -57,16 +54,23 @@ final class Anime4KProcessor: FrameProcessor {
     }
 
     func resetFailure() {
+        if failed {
+            pipelines.removeAll()
+            textures.removeAll()
+            outputPool = nil
+        }
         failed = false
     }
 
     func process(_ frame: VideoFrame) throws -> [VideoFrame] {
         if failed {
-            return [frame]
+            throw Anime4KError.encodeFailed
         }
         do {
             let buffer = try enhance(frame.pixelBuffer)
-            return [VideoFrame(pixelBuffer: buffer, pts: frame.pts, duration: frame.duration)]
+            var result = VideoFrame(pixelBuffer: buffer, pts: frame.pts, duration: frame.duration, trace: frame.trace, originalBuffer: frame.originalBuffer)
+            result.trace.anime4K = true
+            return [result]
         } catch {
             failed = true
             throw error
@@ -83,8 +87,7 @@ final class Anime4KProcessor: FrameProcessor {
         guard width > 1, height > 1 else { throw Anime4KError.encodeFailed }
         if width != cachedWidth || height != cachedHeight {
             textures.removeAll()
-            outputPool.removeAll()
-            outputIndex = 0
+            outputPool = nil
             cachedWidth = width
             cachedHeight = height
         }
@@ -98,7 +101,10 @@ final class Anime4KProcessor: FrameProcessor {
         for pass in Self.passes {
             let destW = width * pass.scale
             let destH = height * pass.scale
-            let dest = try texture("\(pass.save)#\(destW)x\(destH)", width: destW, height: destH)
+            // Read/modify passes must not overwrite a texture they are sampling.
+            // CNN scratch slots can be reused after the preceding encoder finishes.
+            let key = pass.binds.contains(pass.save) ? pass.name : pass.save
+            let dest = try texture("\(key)#\(destW)x\(destH)", width: destW, height: destH)
             guard let encoder = command.makeComputeCommandEncoder() else { throw Anime4KError.encodeFailed }
             guard let pipeline = pipelines[pass.name] else { throw Anime4KError.missingKernel(pass.name) }
             encoder.setComputePipelineState(pipeline)
@@ -207,38 +213,21 @@ final class Anime4KProcessor: FrameProcessor {
     }
 
     private func nextOutput(width: Int, height: Int) throws -> CVPixelBuffer {
-        if let first = outputPool.first,
-           CVPixelBufferGetWidth(first) == width,
-           CVPixelBufferGetHeight(first) == height {
-            let buffer = outputPool[outputIndex % outputPool.count]
-            outputIndex += 1
-            return buffer
+        if outputPool == nil {
+            let attrs: [CFString: Any] = [
+                kCVPixelBufferWidthKey: width, kCVPixelBufferHeightKey: height,
+                kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+                kCVPixelBufferMetalCompatibilityKey: true,
+            ]
+            guard CVPixelBufferPoolCreate(nil, nil, attrs as CFDictionary, &outputPool) == kCVReturnSuccess else {
+                throw Anime4KError.outputFailed
+            }
         }
-        var pool: [CVPixelBuffer] = []
-        pool.reserveCapacity(Self.poolSize)
-        for _ in 0..<Self.poolSize {
-            pool.append(try makeBGRA(width: width, height: height))
-        }
-        outputPool = pool
-        outputIndex = 1
-        return pool[0]
-    }
-
-    private func makeBGRA(width: Int, height: Int) throws -> CVPixelBuffer {
         var buffer: CVPixelBuffer?
-        let attrs: [CFString: Any] = [
-            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
-            kCVPixelBufferMetalCompatibilityKey: true,
-        ]
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            width,
-            height,
-            kCVPixelFormatType_32BGRA,
-            attrs as CFDictionary,
-            &buffer
-        )
-        guard status == kCVReturnSuccess, let buffer else { throw Anime4KError.outputFailed }
+        guard let outputPool,
+              CVPixelBufferPoolCreatePixelBuffer(nil, outputPool, &buffer) == kCVReturnSuccess,
+              let buffer else { throw Anime4KError.outputFailed }
         return buffer
     }
 

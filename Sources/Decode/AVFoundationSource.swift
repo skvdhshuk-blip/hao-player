@@ -10,6 +10,7 @@ final class AVFoundationSource: VideoSource {
     private var audioOutput: AVAssetReaderTrackOutput?
     private var peekedVideo: VideoFrame?
     private var peekedAudio: AudioBuffer?
+    private var nominalInterval = 1.0 / 24.0
 
     private(set) var duration = 0.0
     private(set) var hasAudio = false
@@ -21,7 +22,10 @@ final class AVFoundationSource: VideoSource {
         guard playable else { throw SourceError.notPlayable }
         let length = try await asset.load(.duration)
         duration = length.seconds.isFinite ? length.seconds : 0
-        _ = try await asset.loadTracks(withMediaType: .video)
+        if let track = try await asset.loadTracks(withMediaType: .video).first {
+            let rate = try await track.load(.nominalFrameRate)
+            if rate > 0 { nominalInterval = 1 / Double(rate) }
+        }
         _ = try await asset.loadTracks(withMediaType: .audio)
         self.asset = asset
         try startReader(from: 0)
@@ -128,7 +132,7 @@ final class AVFoundationSource: VideoSource {
         guard let buffer = CMSampleBufferGetImageBuffer(sample) else { return nil }
         let pts = CMSampleBufferGetPresentationTimeStamp(sample).seconds
         let dur = CMSampleBufferGetDuration(sample)
-        let seconds = dur.isValid && dur.seconds > 0 ? dur.seconds : 0.04
+        let seconds = dur.isValid && dur.seconds > 0 ? dur.seconds : nominalInterval
         return VideoFrame(pixelBuffer: buffer, pts: pts, duration: seconds)
     }
 

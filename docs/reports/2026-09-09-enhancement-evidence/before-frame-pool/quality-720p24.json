@@ -1,0 +1,94 @@
+{
+  "consecutiveUnpresented" : 0,
+  "droppedDisplay" : 1,
+  "droppedLate" : 6454,
+  "droppedSource" : 3848,
+  "epoch" : 1,
+  "firstProcessMS" : 626.5550833486486,
+  "generated" : 18626,
+  "generatedInterpolated" : 8948,
+  "gpu" : "Apple M5 Pro",
+  "lowPowerMode" : false,
+  "maxQueueDepth" : 3,
+  "measuredSeconds" : 566.2191050000256,
+  "memoryBytes" : 51539607552,
+  "operatingSystem" : "版本26.6.2（版号25G83）",
+  "outputHeight" : 720,
+  "outputWidth" : 1280,
+  "presentationCallbacks" : 12233,
+  "presented" : 12172,
+  "presentedEnhanced" : 0,
+  "presentedInterpolated" : 5333,
+  "purpose" : "playback",
+  "queueDepth" : 0,
+  "schemaVersion" : 1,
+  "settings" : {
+    "anime4KEnabled" : false,
+    "anime4KPreset" : "fastA",
+    "interpolation" : "quality"
+  },
+  "sourceFPS" : 23.901484530344895,
+  "sourceHeight" : 720,
+  "sourceWidth" : 1280,
+  "stages" : {
+    "anime4K" : {
+      "count" : 9678,
+      "maxMS" : 0.021958316210657358,
+      "meanMS" : 0.0012847953677615472,
+      "p95MS" : 0.1
+    },
+    "displayGPU" : {
+      "count" : 12172,
+      "maxMS" : 2.435916685499251,
+      "meanMS" : 0.15276000589861713,
+      "p95MS" : 0.5
+    },
+    "inputConversion" : {
+      "count" : 9678,
+      "maxMS" : 13.279583334224299,
+      "meanMS" : 1.013295765326771,
+      "p95MS" : 1.7
+    },
+    "interpolation" : {
+      "count" : 9678,
+      "maxMS" : 95.6387083278969,
+      "meanMS" : 55.10583691101797,
+      "p95MS" : 66.10000000000001
+    },
+    "model" : {
+      "count" : 8948,
+      "maxMS" : 89.53695831587538,
+      "meanMS" : 57.03341712769181,
+      "p95MS" : 63.5
+    },
+    "outputConversion" : {
+      "count" : 8948,
+      "maxMS" : 15.225666662445292,
+      "meanMS" : 1.275594471637141,
+      "p95MS" : 2.3
+    },
+    "queueToScreen" : {
+      "count" : 12172,
+      "maxMS" : 72.73158332100138,
+      "meanMS" : 34.28125842459386,
+      "p95MS" : 50.4
+    },
+    "total" : {
+      "count" : 9678,
+      "maxMS" : 95.64083331497386,
+      "meanMS" : 55.10712936115625,
+      "p95MS" : 66.10000000000001
+    }
+  },
+  "staleCallbacks" : 0,
+  "status" : {
+    "anime4KEnabled" : false,
+    "anime4KPhase" : "off",
+    "interpolation" : "quality",
+    "interpolationPhase" : "slow",
+    "performanceLimited" : true
+  },
+  "submitted" : 12233,
+  "unpresentedCallbacks" : 2,
+  "warmupSeconds" : 2
+}

@@ -1,0 +1,92 @@
+[
+  {
+    "filename": "1080p24.mp4",
+    "sha256": "eeb74f19391c84e6fd9ca1b76377c918edf6192beeeca4b3de35f0b3c762eeda",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "24/1",
+          "avg_frame_rate": "46258176/1935359"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "sample_rate": "48000",
+          "channels": 2,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "630.040690",
+        "size": "343358030"
+      }
+    }
+  },
+  {
+    "filename": "1080p30.mp4",
+    "sha256": "b9a4f6ba5c04563a96f3392c4e900867f7dfc13937c80f26d88b8c08b47f4ac6",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "avg_frame_rate": "289259520/9676411"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "sample_rate": "48000",
+          "channels": 2,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "630.018000",
+        "size": "357644317"
+      }
+    }
+  },
+  {
+    "filename": "720p24.mkv",
+    "sha256": "afbdab7bf877502bc02dd06c11d52e49765d0bf13a3e254dda47670cebdb97d1",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720,
+          "r_frame_rate": "24/1",
+          "avg_frame_rate": "24/1"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "sample_rate": "48000",
+          "channels": 2,
+          "r_frame_rate": "0/0",
+          "avg_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "630.062000",
+        "size": "249027569"
+      }
+    }
+  }
+]

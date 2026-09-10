@@ -1,199 +1,99 @@
+import CoreImage
 import CoreMedia
 import CoreVideo
 import Foundation
+import QuartzCore
 import VideoToolbox
 
-/// `VTFrameProcessor` over-releases submitted IOSurfaces on process failure
-/// and during `endSession` / deinit. Sessions therefore live until process
-/// exit, and a buffer handed to `process` can be marked stolen so we skip
-/// `CFRelease`.
-private enum VTSessionKeepalive {
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var sessions: [VTFrameProcessor] = []
-
-    static func keep(_ processor: VTFrameProcessor) {
-        lock.lock()
-        sessions.append(processor)
-        lock.unlock()
-    }
-}
-
-private final class VTOwnedBuffer {
-    private let ref: Unmanaged<CVPixelBuffer>
-    let pts: TimeInterval
-    let duration: TimeInterval
-    private var stolen = false
-
-    init(_ buffer: CVPixelBuffer, pts: TimeInterval, duration: TimeInterval) {
-        ref = Unmanaged.passRetained(buffer)
-        self.pts = pts
-        self.duration = duration
-    }
-
-    deinit {
-        if !stolen {
-            ref.release()
-        }
-    }
-
-    var pixelBuffer: CVPixelBuffer {
-        ref.takeUnretainedValue()
-    }
-
-    func relinquishToVT() {
-        stolen = true
-    }
-}
-
 final class VTInterpolationProcessor: FrameProcessor {
-    private var processor = VTFrameProcessor()
-    private var previous: VTOwnedBuffer?
-    private var sessionWidth = 0
-    private var sessionHeight = 0
+    private(set) var lastTimings: [String: Double] = [:]
+    private let processor = VTFrameProcessor()
+    private let context = CIContext(mtlDevice: GPUContext.shared.device, options: [.workingColorSpace: NSNull()])
+    private var previous: VTFrameProcessorFrame?
+    private var sourcePool: CVPixelBufferPool?
+    private var destinationPool: CVPixelBufferPool?
+    private var width = 0
+    private var height = 0
     private var started = false
+    private var sequential = false
+    private var sourceFormat: OSType = 0
 
     func process(_ frame: VideoFrame) throws -> [VideoFrame] {
-        let prepared = VTOwnedBuffer(
-            try PixelBufferIO.isolatedBGRA(frame.pixelBuffer),
-            pts: frame.pts,
-            duration: frame.duration
-        )
-        try ensureSession(width: CVPixelBufferGetWidth(prepared.pixelBuffer),
-                          height: CVPixelBufferGetHeight(prepared.pixelBuffer))
-        guard let last = previous else {
-            previous = prepared
-            return [frame]
+        lastTimings = [:]
+        try ensureSession(width: CVPixelBufferGetWidth(frame.pixelBuffer), height: CVPixelBufferGetHeight(frame.pixelBuffer))
+        let conversionStart = CACurrentMediaTime()
+        let input: CVPixelBuffer
+        if CVPixelBufferGetPixelFormatType(frame.pixelBuffer) == sourceFormat, CVPixelBufferGetIOSurface(frame.pixelBuffer) != nil {
+            input = frame.pixelBuffer
+        } else {
+            input = try allocate(sourcePool)
+            context.render(CIImage(cvPixelBuffer: frame.pixelBuffer), to: input,
+                           bounds: CGRect(x: 0, y: 0, width: width, height: height), colorSpace: CGColorSpaceCreateDeviceRGB())
         }
-        do {
-            let mid = try interpolate(previous: last, current: prepared)
-            previous = prepared
-            return [mid, frame]
-        } catch {
-            last.relinquishToVT()
-            prepared.relinquishToVT()
-            previous = nil
-            throw error
+        guard let current = VTFrameProcessorFrame(buffer: input, presentationTimeStamp: CMTime(seconds: frame.pts, preferredTimescale: 60000)) else {
+            throw InterpolationError.unavailable
         }
+        lastTimings["inputConversion"] = CACurrentMediaTime() - conversionStart
+        guard let previous else { self.previous = current; return [frame] }
+        let processingStart = CACurrentMediaTime()
+        let midPTS = (previous.presentationTimeStamp.seconds + frame.pts) / 2
+        let output = try allocate(destinationPool)
+        guard let destination = VTFrameProcessorFrame(buffer: output, presentationTimeStamp: CMTime(seconds: midPTS, preferredTimescale: 60000)),
+              let parameters = VTFrameRateConversionParameters(sourceFrame: previous, nextFrame: current, opticalFlow: nil,
+                  interpolationPhase: [0.5], submissionMode: sequential ? .sequential : .random, destinationFrames: [destination]) else {
+            throw InterpolationError.unavailable
+        }
+        let completion = Completion()
+        processor.process(parameters: parameters) { _, error in completion.finish(error) }
+        try completion.wait()
+        lastTimings["vtProcessing"] = CACurrentMediaTime() - processingStart
+        self.previous = current
+        sequential = true
+        return [VideoFrame(pixelBuffer: output, pts: midPTS, duration: frame.duration / 2), frame]
     }
 
-    func reset() {
-        previous = nil
-    }
+    func reset() { previous = nil; sequential = false }
 
-    deinit {
-        if started {
-            VTSessionKeepalive.keep(processor)
-        }
-    }
+    deinit { if started { processor.endSession() } }
 
     private func ensureSession(width: Int, height: Int) throws {
-        if started, width == sessionWidth, height == sessionHeight {
-            return
+        if started, self.width == width, self.height == height { return }
+        if started { processor.endSession(); started = false }
+        previous = nil
+        guard VTFrameRateConversionConfiguration.isSupported,
+              let config = VTFrameRateConversionConfiguration(frameWidth: width, frameHeight: height, usePrecomputedFlow: false, qualityPrioritization: .normal, revision: VTFrameRateConversionConfiguration.defaultRevision) else {
+            throw EnhancementFailure(stage: .interpolation, message: "系统不支持当前视频的快档插帧")
         }
-        replaceSession()
-        guard VTLowLatencyFrameInterpolationConfiguration.isSupported else {
-            throw InterpolationError.unavailable
-        }
-        guard let configuration = VTLowLatencyFrameInterpolationConfiguration(
-            frameWidth: width,
-            frameHeight: height,
-            numberOfInterpolatedFrames: 1
-        ) else {
-            throw InterpolationError.unavailable
-        }
-        try processor.startSession(configuration: configuration)
-        sessionWidth = width
-        sessionHeight = height
+        // Allocate the pixel format and layout required by the system processor.
+        sourceFormat = (config.sourcePixelBufferAttributes[kCVPixelBufferPixelFormatTypeKey as String] as? NSNumber)?.uint32Value ?? 0
+        sourcePool = try pool(config.sourcePixelBufferAttributes)
+        destinationPool = try pool(config.destinationPixelBufferAttributes)
+        try processor.startSession(configuration: config)
         started = true
-        previous = nil
+        self.width = width
+        self.height = height
     }
 
-    private func replaceSession() {
-        previous = nil
-        guard started else { return }
-        started = false
-        VTSessionKeepalive.keep(processor)
-        processor = VTFrameProcessor()
+    private func pool(_ attributes: [String: any Sendable]) throws -> CVPixelBufferPool {
+        var result: CVPixelBufferPool?
+        var attrs = attributes
+        attrs[kCVPixelBufferMetalCompatibilityKey as String] = true
+        guard CVPixelBufferPoolCreate(nil, nil, attrs as CFDictionary, &result) == kCVReturnSuccess,
+              let result else { throw InterpolationError.unavailable }
+        return result
     }
 
-    private func interpolate(previous: VTOwnedBuffer, current: VTOwnedBuffer) throws -> VideoFrame {
-        let source = try wrapped(current)
-        let reference = try wrapped(previous)
-        let midPTS = (previous.pts + current.pts) / 2
-        let destination = VTOwnedBuffer(
-            try makeDestination(like: current.pixelBuffer),
-            pts: midPTS,
-            duration: current.duration / 2
-        )
-        guard let destFrame = VTFrameProcessorFrame(
-            buffer: destination.pixelBuffer,
-            presentationTimeStamp: CMTime(seconds: midPTS, preferredTimescale: 600)
-        ) else {
-            throw InterpolationError.unavailable
-        }
-        guard let parameters = VTLowLatencyFrameInterpolationParameters(
-            sourceFrame: source,
-            previousFrame: reference,
-            interpolationPhase: [0.5],
-            destinationFrames: [destFrame]
-        ) else {
-            throw InterpolationError.unavailable
-        }
-
-        let lock = NSLock()
-        var processError: Error?
-        let done = DispatchSemaphore(value: 0)
-        processor.process(parameters: parameters) { _, error in
-            lock.lock()
-            processError = error
-            lock.unlock()
-            done.signal()
-        }
-        done.wait()
-        lock.lock()
-        let error = processError
-        lock.unlock()
-        if let error {
-            destination.relinquishToVT()
-            throw error
-        }
-        return VideoFrame(
-            pixelBuffer: destination.pixelBuffer,
-            pts: midPTS,
-            duration: current.duration / 2
-        )
-    }
-
-    private func wrapped(_ frame: VTOwnedBuffer) throws -> VTFrameProcessorFrame {
-        let time = CMTime(seconds: frame.pts, preferredTimescale: 600)
-        guard let wrapped = VTFrameProcessorFrame(
-            buffer: frame.pixelBuffer,
-            presentationTimeStamp: time
-        ) else {
-            throw InterpolationError.unavailable
-        }
-        return wrapped
-    }
-
-    private func makeDestination(like source: CVPixelBuffer) throws -> CVPixelBuffer {
-        let width = CVPixelBufferGetWidth(source)
-        let height = CVPixelBufferGetHeight(source)
+    private func allocate(_ pool: CVPixelBufferPool?) throws -> CVPixelBuffer {
         var buffer: CVPixelBuffer?
-        let attrs: [CFString: Any] = [
-            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
-            kCVPixelBufferMetalCompatibilityKey: true,
-        ]
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            width,
-            height,
-            CVPixelBufferGetPixelFormatType(source),
-            attrs as CFDictionary,
-            &buffer
-        )
-        guard status == kCVReturnSuccess, let buffer else {
-            throw InterpolationError.unavailable
-        }
+        guard let pool, CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer) == kCVReturnSuccess,
+              let buffer else { throw InterpolationError.unavailable }
         return buffer
+    }
+
+    private final class Completion: @unchecked Sendable {
+        private let semaphore = DispatchSemaphore(value: 0)
+        private var error: Error?
+        func finish(_ error: Error?) { self.error = error; semaphore.signal() }
+        func wait() throws { semaphore.wait(); if let error { throw error } }
     }
 }

@@ -1,0 +1,124 @@
+{
+  "quality-720p24": {
+    "measuredSeconds": 600.0656467083318,
+    "stableMinMiB": 504.5338134765625,
+    "stableMaxMiB": 549.5181884765625,
+    "endMiB": 526.0181884765625,
+    "displayFPS": 20.94104214918978,
+    "dropRate": 0.5482780933208714,
+    "p95MS": 87.6,
+    "presentedInterpolated": 5473,
+    "stages": {
+      "anime4K": {
+        "count": 9774,
+        "maxMS": 0.04570832243189216,
+        "meanMS": 0.0011772690080508364,
+        "p95MS": 0.1
+      },
+      "displayGPU": {
+        "count": 12566,
+        "maxMS": 2.828500000759959,
+        "meanMS": 0.23830303657503055,
+        "p95MS": 0.9
+      },
+      "inputConversion": {
+        "count": 9774,
+        "maxMS": 4.2370833398308605,
+        "meanMS": 0.8591467755665303,
+        "p95MS": 1.6
+      },
+      "interpolation": {
+        "count": 9774,
+        "maxMS": 113.40908333659172,
+        "meanMS": 58.57593058937982,
+        "p95MS": 87.6
+      },
+      "model": {
+        "count": 8908,
+        "maxMS": 110.24412501137704,
+        "meanMS": 61.79303624556405,
+        "p95MS": 85.2
+      },
+      "outputConversion": {
+        "count": 8908,
+        "maxMS": 11.089833336882293,
+        "meanMS": 1.375751520235759,
+        "p95MS": 2.2
+      },
+      "queueToScreen": {
+        "count": 12566,
+        "maxMS": 91.49108332348987,
+        "meanMS": 27.923656135732966,
+        "p95MS": 35.9
+      },
+      "total": {
+        "count": 9774,
+        "maxMS": 113.41033334610984,
+        "meanMS": 58.57711566393753,
+        "p95MS": 87.6
+      }
+    },
+    "firstProcessMS": 707.3652499821037
+  },
+  "quality-anime-720p24": {
+    "measuredSeconds": 60.0954019583296,
+    "stableMinMiB": 730.2524032592773,
+    "stableMaxMiB": 744.6900405883789,
+    "endMiB": 744.6900405883789,
+    "displayFPS": 16.373964861443305,
+    "dropRate": 0.6445086705202312,
+    "p95MS": 102.9,
+    "presentedInterpolated": 408,
+    "stages": {
+      "anime4K": {
+        "count": 827,
+        "maxMS": 35.69883335148916,
+        "meanMS": 6.84847989740518,
+        "p95MS": 10.4
+      },
+      "displayGPU": {
+        "count": 984,
+        "maxMS": 2.8204583504702896,
+        "meanMS": 0.46123801658405145,
+        "p95MS": 1.5
+      },
+      "inputConversion": {
+        "count": 827,
+        "maxMS": 11.967166676186025,
+        "meanMS": 1.0426392578652202,
+        "p95MS": 2.3
+      },
+      "interpolation": {
+        "count": 827,
+        "maxMS": 113.40012497385032,
+        "meanMS": 62.40577292372388,
+        "p95MS": 93.89999999999999
+      },
+      "model": {
+        "count": 715,
+        "maxMS": 103.26791665283963,
+        "meanMS": 69.17238781994723,
+        "p95MS": 90.5
+      },
+      "outputConversion": {
+        "count": 715,
+        "maxMS": 13.438041671179235,
+        "meanMS": 1.6111456289630175,
+        "p95MS": 2.8
+      },
+      "queueToScreen": {
+        "count": 984,
+        "maxMS": 107.08874999545515,
+        "meanMS": 28.111103997017803,
+        "p95MS": 39.699999999999996
+      },
+      "total": {
+        "count": 827,
+        "maxMS": 123.16958332667127,
+        "meanMS": 69.25433101555521,
+        "p95MS": 102.9
+      }
+    },
+    "firstProcessMS": 114.77737501263618
+  }
+}

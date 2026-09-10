@@ -16,6 +16,7 @@ final class AVFoundationSourceTests: XCTestCase {
             switch try source.pull() {
             case .video(let frame):
                 firstPTS = frame.pts
+                XCTAssertEqual(frame.duration, 1 / 15, accuracy: 0.002, "Use the track frame rate when sample duration is absent")
             case .eof:
                 break
             case .audio:

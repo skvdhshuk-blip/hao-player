@@ -1,0 +1,14 @@
+{
+  "reference": "bilinear 2x, same input RGB",
+  "mean_abs_rgb_255": 0.3224728732638889,
+  "max_abs_rgb_255": 53.0,
+  "different_pixel_fraction": 0.07624782986111112,
+  "source_size": [
+    640,
+    360
+  ],
+  "enhanced_size": [
+    1280,
+    720
+  ]
+}

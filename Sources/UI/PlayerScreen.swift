@@ -46,14 +46,6 @@ struct PlayerScreen: View {
                                 scheduleHideChrome()
                             }
                         }
-                        .onHover { inside in
-                            if inside {
-                                chromeVisible = true
-                                hideChromeTask?.cancel()
-                            } else if engine.isPlaying {
-                                scheduleHideChrome()
-                            }
-                        }
                 }
             }
         }
@@ -82,9 +74,11 @@ struct PlayerScreen: View {
         .frame(minWidth: 720, minHeight: 420)
         .background(WindowActionBinder())
         .onAppear {
+#if !ENHANCEMENT_ACCEPTANCE
             Task { @MainActor in
                 await engine.restoreIfNeeded()
             }
+#endif
         }
         .onDisappear {
             engine.persistResume()
@@ -94,14 +88,6 @@ struct PlayerScreen: View {
                 await engine.openFile(url)
             }
         }
-        .onKeyPress(.leftArrow) {
-            engine.skip(by: -5)
-            return .handled
-        }
-        .onKeyPress(.rightArrow) {
-            engine.skip(by: 5)
-            return .handled
-        }
         .alert("无法播放", isPresented: Binding(
             get: { engine.errorMessage != nil },
             set: { if !$0 { engine.errorMessage = nil } }
@@ -110,6 +96,20 @@ struct PlayerScreen: View {
         } message: {
             Text(engine.errorMessage ?? "")
         }
+        .sheet(isPresented: $engine.showEnhancementDetails) { EnhancementDetails().environmentObject(engine) }
+        .sheet(isPresented: $engine.showImageComparison, onDismiss: { engine.endComparison() }) {
+            ImageComparisonView().environmentObject(engine)
+        }
+        .alert("增强处理失败，播放已暂停", isPresented: Binding(
+            get: { engine.enhancementFailure != nil },
+            set: { _ in }
+        )) {
+            Button("重试") { engine.resolveEnhancementFailure(disable: false) }
+            if engine.enhancementFailure?.stage != .presentation {
+                Button("关闭此功能并继续") { engine.resolveEnhancementFailure(disable: true) }
+            }
+            Button("保持暂停", role: .cancel) { engine.keepPausedAfterFailure() }
+        } message: { Text(engine.enhancementFailure?.errorDescription ?? "") }
         .navigationTitle(engine.title.isEmpty ? "Hao Player" : engine.title)
     }
 

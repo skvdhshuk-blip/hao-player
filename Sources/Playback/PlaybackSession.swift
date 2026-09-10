@@ -8,6 +8,7 @@ final class PlaybackSession: @unchecked Sendable {
         case stopped
         case playing
         case paused
+        case ended
     }
 
     private enum Timing {
@@ -16,9 +17,7 @@ final class PlaybackSession: @unchecked Sendable {
         static let earlyFrame = 0.03
         static let videoBacklog = 12
         static let decodeIdle = 0.03
-        static let decodeWait = 0.01
         static let seekSlop = 0.05
-        static let futureHorizon = 2.0
     }
 
     let presenter = MetalPresenter()
@@ -28,14 +27,33 @@ final class PlaybackSession: @unchecked Sendable {
     private let anime4K = Anime4KProcessor()
     private let passthrough = PassthroughProcessor()
     private var anime4KEnabled = true
-    private var upscalerFailed = false
+    let metrics = EnhancementMetrics()
+    private var requestedSettings = EnhancementSettings()
+    private var pendingEnhancements = false
+    private var pendingReset = false
+    private var metricsPurpose = "playback"
+    private var comparisonFrame: VideoFrame?
     private var source: (any VideoSource)?
     private let decodeQueue = DispatchQueue(label: "hao.player.decode")
     private let lock = NSLock()
     private let enhanceLock = NSLock()
     private var videoFrames: [VideoFrame] = []
-    private var decodeRunning = false
-    private var transport: Transport = .stopped
+    private var running = false
+    private var state: Transport = .stopped
+    private var sourceEnded = false
+    private var previewPending = false
+    private var buffering = false
+    private var decodeDeadline = 0.0
+    private var activity: NSObjectProtocol?
+    private var lastMediaEnd = 0.0
+    private var decodeRunning: Bool {
+        get { lock.withLock { running } }
+        set { lock.withLock { running = newValue } }
+    }
+    private var transport: Transport {
+        get { lock.withLock { state } }
+        set { lock.withLock { state = newValue } }
+    }
     private var hostAnchor = CACurrentMediaTime()
     private var timeAnchor = 0.0
     private var displayLink: CADisplayLink?
@@ -55,9 +73,11 @@ final class PlaybackSession: @unchecked Sendable {
     private(set) var currentTime = 0.0
     var onTick: ((Double, Bool) -> Void)?
     var onError: ((String) -> Void)?
+    var onEnhancementFailure: ((EnhancementFailure) -> Void)?
 
     var isPlaying: Bool { transport == .playing }
-    var activeInterpolation: InterpolationMode { interpolation.active }
+    var enhancementStatus: EnhancementStatus { metrics.snapshot().status }
+    var lastOriginalFrame: VideoFrame? { lock.withLock { comparisonFrame } }
     var queuedFramePTS: [Double] {
         lock.lock()
         defer { lock.unlock() }
@@ -67,7 +87,25 @@ final class PlaybackSession: @unchecked Sendable {
     func publishEnhanced(_ outgoing: [VideoFrame], epoch: Int) {
         lock.lock()
         if epoch == seekEpoch {
-            videoFrames.append(contentsOf: outgoing)
+            videoFrames.append(contentsOf: outgoing.map { frame in
+                var value = frame
+                value.trace.queuedAt = CACurrentMediaTime()
+                return value
+            })
+            metrics.queued(epoch: epoch, count: videoFrames.count)
+            for frame in outgoing { lastMediaEnd = max(lastMediaEnd, frame.pts + frame.duration) }
+            if buffering, !outgoing.isEmpty {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.lock.withLock {
+                        guard epoch == self.seekEpoch, self.buffering else { return }
+                        self.buffering = false
+                        self.timeAnchor = self.currentTime
+                        self.hostAnchor = CACurrentMediaTime()
+                        if self.state == .playing, self.audioPTSOrigin != nil { self.audioNode?.play() }
+                    }
+                }
+            }
         }
         lock.unlock()
     }
@@ -76,12 +114,26 @@ final class PlaybackSession: @unchecked Sendable {
         interpolation = InterpolationRuntime(make: makeInterpolator ?? PlaybackSession.defaultInterpolator)
     }
 
-    func applyEnhancements(_ settings: EnhancementSettings) {
-        enhanceLock.lock()
-        anime4KEnabled = settings.anime4KEnabled
-        interpolation.setRequested(settings.interpolation)
-        refreshUpscaler()
-        enhanceLock.unlock()
+    func applyEnhancements(_ settings: EnhancementSettings, purpose: String = "playback") {
+        lock.withLock {
+            requestedSettings = settings
+            pendingEnhancements = true
+            metricsPurpose = purpose
+        }
+        if source != nil { seek(to: currentTime) }
+        else { resetMetrics() }
+    }
+
+    private func resetMetrics() {
+        let values = lock.withLock { (seekEpoch, requestedSettings, metricsPurpose) }
+        metrics.reset(epoch: values.0, settings: values.1, purpose: values.2)
+        metrics.setPlaying(isPlaying)
+    }
+
+    func retryEnhancements() {
+        lock.withLock { pendingEnhancements = true }
+        seek(to: currentTime)
+        play()
     }
 
     func open(_ source: VideoSource) {
@@ -89,10 +141,10 @@ final class PlaybackSession: @unchecked Sendable {
         enhanceLock.lock()
         interpolation.restoreRequested()
         interpolation.reset()
-        upscalerFailed = false
         anime4K.resetFailure()
         refreshUpscaler()
         enhanceLock.unlock()
+        resetMetrics()
         self.source = source
         duration = source.duration
         hasAudio = source.hasAudio
@@ -103,15 +155,24 @@ final class PlaybackSession: @unchecked Sendable {
     }
 
     func play() {
+        guard source != nil, enhancementStatus.failure == nil else { return }
+        if transport == .ended || (duration > 0 && currentTime >= duration) {
+            seek(to: 0)
+        }
         timeAnchor = currentTime
         hostAnchor = CACurrentMediaTime()
+        lock.withLock { if videoFrames.isEmpty { buffering = true } }
+        if activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleDisplaySleepDisabled], reason: "本地视频播放")
+        }
         transport = .playing
+        metrics.setPlaying(true)
         onMain {
             guard let engine = self.audioEngine, let node = self.audioNode else { return }
             if !engine.isRunning {
                 try? engine.start()
             }
-            if !node.isPlaying {
+            if self.lock.withLock({ self.audioPTSOrigin != nil && !self.buffering }), !node.isPlaying {
                 node.play()
             }
         }
@@ -121,8 +182,10 @@ final class PlaybackSession: @unchecked Sendable {
     }
 
     func pause() {
-        currentTime = mediaTime()
+        if isPlaying { currentTime = mediaTime() }
         transport = .paused
+        endActivity()
+        metrics.setPlaying(false)
         onMain { self.audioNode?.pause() }
         publishTime(playing: false)
     }
@@ -131,40 +194,47 @@ final class PlaybackSession: @unchecked Sendable {
         let clamped = min(max(time, 0), max(duration, 0))
         lock.lock()
         videoFrames.removeAll()
-        pendingSeek = clamped
-        dropBefore = clamped
+        comparisonFrame = nil
+        // At the endpoint decode the final frame, while retaining the requested UI time.
+        let decodeTime = clamped >= duration ? max(0, duration - 0.1) : clamped
+        pendingSeek = decodeTime
+        dropBefore = decodeTime
         seekEpoch += 1
+        pendingReset = true
+        buffering = true
+        decodeDeadline = clamped
+        sourceEnded = false
+        previewPending = true
+        lastMediaEnd = decodeTime
+        if clamped >= duration { state = .ended }
+        else if state == .ended { state = .paused }
+        audioPTSOrigin = nil
+        audioNode?.stop()
         lock.unlock()
-        enhanceLock.lock()
-        interpolation.reset()
-        enhanceLock.unlock()
+        resetMetrics()
         currentTime = clamped
         timeAnchor = clamped
         hostAnchor = CACurrentMediaTime()
-        lock.lock()
-        audioPTSOrigin = nil
-        lock.unlock()
-        onMain {
-            self.audioNode?.stop()
-            if self.transport == .playing {
-                self.audioNode?.play()
-            }
-        }
         if transport != .stopped {
+            startClock()
             startDecodeLoop()
         }
         publishTime(playing: isPlaying)
     }
 
     func shutdown() {
+        metrics.setPlaying(false)
+        endActivity()
         transport = .stopped
         decodeRunning = false
         lock.lock()
         videoFrames.removeAll()
         pendingSeek = nil
+        comparisonFrame = nil
         dropBefore = 0
         seekEpoch += 1
         lock.unlock()
+        decodeQueue.sync { self.source = nil }
         onMain {
             self.displayLink?.invalidate()
             self.displayLink = nil
@@ -175,17 +245,14 @@ final class PlaybackSession: @unchecked Sendable {
             self.audioNode = nil
             self.audioFormat = nil
         }
-        let closed = DispatchSemaphore(value: 0)
-        decodeQueue.async {
-            self.source = nil
-            closed.signal()
-        }
-        closed.wait()
         lock.lock()
         videoFrames.removeAll()
         pendingSeek = nil
         dropBefore = 0
         audioPTSOrigin = nil
+        sourceEnded = false
+        previewPending = false
+        lastMediaEnd = 0
         lock.unlock()
         currentTime = 0
         duration = 0
@@ -204,29 +271,67 @@ final class PlaybackSession: @unchecked Sendable {
         }
     }
 
-    fileprivate func displayTick() {
-        guard transport == .playing else { return }
-        let now = mediaTime()
+    func displayTick() {
+        guard transport != .stopped else { return }
+        let playing = isPlaying
+        let now = playing ? mediaTime() : currentTime
         currentTime = now
         lock.lock()
-        let frame = VideoDisplay.take(
-            now: now,
-            frames: &videoFrames,
-            ready: presenter.isReady,
-            late: Timing.lateFrame,
-            early: Timing.earlyFrame,
-            horizon: Timing.futureHorizon
-        )
+        decodeDeadline = now
+        let frame: VideoFrame?
+        var dropped: [VideoFrame] = []
+        if previewPending, pendingSeek == nil, presenter.isReady, !videoFrames.isEmpty {
+            frame = videoFrames.removeFirst()
+        } else if playing {
+            frame = VideoDisplay.take(
+                now: now, frames: &videoFrames, ready: presenter.isReady,
+                late: Timing.lateFrame, early: min(Timing.earlyFrame, 0.008), onDrop: { dropped.append($0) }
+            )
+        } else {
+            frame = nil
+        }
+        metrics.queued(epoch: seekEpoch, count: videoFrames.count)
         lock.unlock()
-        if let frame, !presenter.draw(frame.pixelBuffer) {
-            lock.lock()
-            videoFrames.insert(frame, at: 0)
-            lock.unlock()
+        metrics.dropped(dropped)
+        if let frame {
+            let drawn = presenter.draw(frame.pixelBuffer) { [weak self] time, gpu, error in
+                guard let self else { return }
+                if let error {
+                    self.fail(EnhancementFailure(stage: .presentation, message: error.localizedDescription), epoch: frame.trace.epoch)
+                } else {
+                    self.metrics.displayed(frame, at: time, gpuSeconds: gpu)
+
+                }
+            }
+            if drawn {
+                metrics.submitted(frame)
+                lock.withLock {
+                    if frame.trace.epoch == seekEpoch, !frame.trace.interpolated {
+                        comparisonFrame = VideoFrame(pixelBuffer: frame.originalBuffer ?? frame.pixelBuffer, pts: frame.pts, duration: frame.duration, trace: frame.trace)
+                    }
+                }
+            }
+            lock.withLock {
+                if drawn { previewPending = false }
+                else { videoFrames.insert(frame, at: 0) }
+            }
+        }
+        let finished = lock.withLock {
+            sourceEnded && videoFrames.isEmpty && now >= min(lastMediaEnd, duration > 0 ? duration : lastMediaEnd)
+        }
+        if playing, finished {
+            transport = .ended
+            endActivity()
+            metrics.setPlaying(false)
+            audioNode?.stop()
+            currentTime = duration > 0 ? duration : now
+            publishTime(playing: false)
+            return
         }
         let host = CACurrentMediaTime()
         if host - lastUIPublish >= Timing.uiInterval {
             lastUIPublish = host
-            publishTime(playing: true)
+            publishTime(playing: isPlaying)
         }
     }
 
@@ -243,78 +348,117 @@ final class PlaybackSession: @unchecked Sendable {
     }
 
     private func runDecode() {
+        var catchingUp = false
         while decodeRunning, let source {
-            lock.lock()
-            let backlog = videoFrames.count
-            lock.unlock()
-            if backlog > Timing.videoBacklog {
-                Thread.sleep(forTimeInterval: Timing.decodeWait)
-                continue
-            }
             lock.lock()
             let seekTo = pendingSeek
             pendingSeek = nil
             let epoch = seekEpoch
+            let target = dropBefore
+            let deadline = buffering || state != .playing ? target : decodeDeadline
+            let shouldDecode = seekTo != nil || (!sourceEnded && videoFrames.count <= Timing.videoBacklog
+                && (state == .playing || (previewPending && videoFrames.isEmpty)))
             lock.unlock()
-            if let seekTo {
-                do {
-                    try source.seek(to: seekTo)
-                } catch {
-                    fail(error)
-                    break
-                }
-            }
-            if transport != .playing {
+            guard shouldDecode else {
                 Thread.sleep(forTimeInterval: Timing.decodeIdle)
                 continue
             }
             do {
-                switch try source.pull() {
-                case .eof:
-                    decodeRunning = false
-                case .video(let frame):
-                    if frame.pts + Timing.seekSlop >= dropBefore {
-                        let outgoing = enhance(frame)
-                        publishEnhanced(outgoing, epoch: epoch)
+                // This GCD task lives for the entire playback session. Drain Objective-C
+                // conversion/model temporaries per pull; queued frames remain strongly owned.
+                try autoreleasepool {
+                    configureEnhancements()
+                    if let seekTo {
+                        catchingUp = false
+                        try source.seek(to: seekTo)
+                        enhanceLock.withLock { interpolation.reset() }
                     }
-                case .audio(let packet):
-                    scheduleAudio(packet)
+                    switch try source.pull() {
+                    case .eof:
+                        lock.withLock {
+                            if epoch == seekEpoch { sourceEnded = true }
+                        }
+                    case .video(let frame):
+                        if frame.pts + Timing.seekSlop >= target {
+                            var input = frame
+                            input.trace.epoch = epoch
+                            metrics.sourceFrame(input)
+                            if frame.pts < deadline - Timing.lateFrame || (catchingUp && frame.pts < deadline) {
+                                metrics.droppedSource(epoch: epoch)
+                                if !catchingUp { enhanceLock.withLock { interpolation.reset() } }
+                                catchingUp = true
+                                return
+                            }
+                            catchingUp = false
+                            let outgoing = try enhance(input)
+                            publishEnhanced(outgoing, epoch: epoch)
+                        }
+                    case .audio(let packet):
+                        scheduleAudio(packet, epoch: epoch, target: target)
+                    }
                 }
             } catch {
-                fail(error)
-                break
+                fail(error, epoch: epoch)
             }
         }
     }
 
     private func refreshUpscaler() {
-        pipeline.upscaler = (anime4KEnabled && !upscalerFailed) ? anime4K : passthrough
+        pipeline.upscaler = anime4KEnabled ? anime4K : passthrough
     }
 
-    func enhance(_ frame: VideoFrame) -> [VideoFrame] {
-        enhanceLock.lock()
-        let runtime = interpolation
-        let upscaler = pipeline.upscaler
-        enhanceLock.unlock()
+    private func configureEnhancements() {
+        let configuration = lock.withLock { () -> (EnhancementSettings, Bool, Bool) in
+            defer { pendingEnhancements = false; pendingReset = false }
+            return (requestedSettings, pendingEnhancements, pendingReset)
+        }
+        enhanceLock.withLock {
+            if configuration.1 {
+                anime4KEnabled = configuration.0.anime4KEnabled
+                anime4K.resetFailure()
+                interpolation.setRequested(configuration.0.interpolation)
+                interpolation.restoreRequested()
+                refreshUpscaler()
+            } else if configuration.2 { interpolation.reset() }
+        }
+    }
 
+    func enhance(_ frame: VideoFrame) throws -> [VideoFrame] {
+        configureEnhancements()
+        enhanceLock.lock()
+        defer { enhanceLock.unlock() }
         let interval = PipelineMetrics.enhance.beginInterval("enhance")
         defer { PipelineMetrics.enhance.endInterval("enhance", interval) }
         let start = CACurrentMediaTime()
-        let mode = runtime.active
-        let interpolated = runtime.process(frame)
+        let interpolated: [VideoFrame]
+        do {
+            interpolated = try interpolation.process(frame).map { output in
+                var value = output
+                value.originalBuffer = frame.pixelBuffer
+                value.trace = frame.trace
+                value.trace.interpolated = output.pts < frame.pts
+                value.trace.interpolation = value.trace.interpolated ? interpolation.active : .off
+                return value
+            }
+        } catch {
+            throw EnhancementFailure(stage: .interpolation, message: error.localizedDescription)
+        }
+        let afterInterpolation = CACurrentMediaTime()
         let outgoing: [VideoFrame]
         do {
-            outgoing = try interpolated.flatMap { try upscaler.process($0) }
+            outgoing = try interpolated.flatMap { try pipeline.upscaler.process($0) }
         } catch {
-            enhanceLock.lock()
-            upscalerFailed = true
-            refreshUpscaler()
-            enhanceLock.unlock()
-            outgoing = interpolated
+            throw EnhancementFailure(stage: .anime4K, message: error.localizedDescription)
         }
-        if runtime.active == mode {
-            runtime.noteProcessDuration(CACurrentMediaTime() - start, sourceInterval: frame.duration)
+        var times = ["interpolation": afterInterpolation - start,
+                     "anime4K": CACurrentMediaTime() - afterInterpolation,
+                     "total": CACurrentMediaTime() - start]
+        if let processor = interpolation.interpolator as? IFRNetProcessor {
+            times.merge(processor.lastTimings) { _, new in new }
+        } else if let processor = interpolation.interpolator as? VTInterpolationProcessor {
+            times.merge(processor.lastTimings) { _, new in new }
         }
+        metrics.processed(outgoing, input: frame, times: times)
         return outgoing
     }
 
@@ -329,11 +473,21 @@ final class PlaybackSession: @unchecked Sendable {
         }
     }
 
-    private func fail(_ error: Error) {
-        decodeRunning = false
+    private func fail(_ error: Error, epoch: Int) {
+        lock.withLock {
+            if epoch == seekEpoch {
+                sourceEnded = true
+                previewPending = false
+                videoFrames.removeAll()
+            }
+        }
+        if let failure = error as? EnhancementFailure { metrics.fail(failure, epoch: epoch) }
         let message = error.localizedDescription
         DispatchQueue.main.async { [weak self] in
-            self?.onError?(message)
+            guard let self, self.lock.withLock({ epoch == self.seekEpoch }) else { return }
+            self.pause()
+            if let failure = error as? EnhancementFailure { self.onEnhancementFailure?(failure) }
+            else { self.onError?(message) }
         }
     }
 
@@ -361,28 +515,39 @@ final class PlaybackSession: @unchecked Sendable {
         }
     }
 
-    private func scheduleAudio(_ packet: AudioBuffer) {
-        guard let format = audioFormat, let node = audioNode, packet.frameCount > 0 else { return }
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(packet.frameCount)),
-              let channels = buffer.floatChannelData else {
-            return
-        }
-        buffer.frameLength = AVAudioFrameCount(packet.frameCount)
-        let left = channels[0]
-        let right = channels[1]
-        for i in 0..<packet.frameCount {
-            left[i] = packet.pcm[i * 2]
-            right[i] = packet.pcm[i * 2 + 1]
+    private func scheduleAudio(_ packet: AudioBuffer, epoch: Int, target: Double) {
+        let skip = packet.framesToSkip(before: target)
+        let count = packet.frameCount - skip
+        guard let format = audioFormat, let node = audioNode, count > 0 else { return }
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)),
+              let channels = buffer.floatChannelData else { return }
+        buffer.frameLength = AVAudioFrameCount(count)
+        for i in 0..<count {
+            channels[0][i] = packet.pcm[(i + skip) * 2]
+            channels[1][i] = packet.pcm[(i + skip) * 2 + 1]
         }
         lock.lock()
-        if audioPTSOrigin == nil {
-            audioPTSOrigin = packet.pts
-        }
-        lock.unlock()
+        guard epoch == seekEpoch else { lock.unlock(); return }
+        let first = audioPTSOrigin == nil
+        if first { audioPTSOrigin = packet.pts + Double(skip) / packet.sampleRate }
+        lastMediaEnd = max(lastMediaEnd, packet.pts + Double(packet.frameCount) / packet.sampleRate)
         node.scheduleBuffer(buffer)
+        lock.unlock()
+        if first {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isPlaying,
+                      self.lock.withLock({ epoch == self.seekEpoch && !self.buffering }) else { return }
+                self.audioNode?.play()
+            }
+        }
+    }
+
+    private func endActivity() {
+        if let activity { ProcessInfo.processInfo.endActivity(activity); self.activity = nil }
     }
 
     private func mediaTime() -> Double {
+        if lock.withLock({ buffering }) { return currentTime }
         lock.lock()
         let origin = audioPTSOrigin
         lock.unlock()
@@ -427,14 +592,11 @@ enum VideoDisplay {
         ready: Bool,
         late: Double,
         early: Double,
-        horizon: Double = 2.0
+        onDrop: (VideoFrame) -> Void = { _ in }
     ) -> VideoFrame? {
         guard ready else { return nil }
         while let first = frames.first, first.pts < now - late {
-            frames.removeFirst()
-        }
-        while let first = frames.first, first.pts > now + horizon {
-            frames.removeFirst()
+            onDrop(frames.removeFirst())
         }
         if let first = frames.first, first.pts <= now + early {
             return frames.removeFirst()

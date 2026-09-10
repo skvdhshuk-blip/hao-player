@@ -59,7 +59,7 @@ scripts/archive_mas.sh
 ## 上传与提交
 
 1. Organizer 或 Transporter 上传导出的包
-2. 在 Connect 选构建版本 `0.2.0`
+2. 在 Connect 选构建版本 `0.2.1`
 3. 再对一遍店描：仅本地、无网络、无字幕、高质量档有分辨率上限、macOS 26+ / Apple Silicon
 4. 提交审核
 

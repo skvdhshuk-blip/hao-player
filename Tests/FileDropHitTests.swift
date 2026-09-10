@@ -12,6 +12,12 @@ final class FileDropHitTests: XCTestCase {
         )
     }
 
+    func testSliderDragDoesNotInterceptAfterFilePasteboardRemains() {
+        XCTAssertFalse(
+            FileDropHit.intercepts(eventType: .leftMouseDragged, dropActive: false, hasFilePasteboard: true)
+        )
+    }
+
     func testActiveDropStillIntercepts() {
         XCTAssertTrue(
             FileDropHit.intercepts(eventType: .leftMouseDown, dropActive: true, hasFilePasteboard: true)

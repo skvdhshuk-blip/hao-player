@@ -1,0 +1,2 @@
+Executable=/private/tmp/hao-enhancement-gate/Build/Products/Release/HaoPlayer.app/Contents/MacOS/HaoPlayer
+warning: Specifying ':' in the path is deprecated and will not work in a future release

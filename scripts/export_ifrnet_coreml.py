@@ -44,7 +44,16 @@ def main() -> None:
         torch.zeros(1, 3, args.height, args.width),
         torch.full((1, 1, 1, 1), 0.5),
     )
-    traced = torch.jit.trace(model, example, strict=False)
+    class ImageModel(torch.nn.Module):
+        def __init__(self, network):
+            super().__init__()
+            self.network = network
+
+        def forward(self, img0, img1, timestep):
+            # Core ML image outputs are RGB values in [0, 255].
+            return self.network(img0, img1, timestep) * 255.0
+
+    traced = torch.jit.trace(ImageModel(model).eval(), example, strict=False)
     traced = torch.jit.freeze(traced)
 
     height = ct.RangeDim(lower_bound=64, upper_bound=1088, default=args.height)
@@ -53,11 +62,11 @@ def main() -> None:
         traced,
         convert_to="mlprogram",
         inputs=[
-            ct.TensorType(name="img0", shape=ct.Shape((1, 3, height, width))),
-            ct.TensorType(name="img1", shape=ct.Shape((1, 3, height, width))),
+            ct.ImageType(name="img0", shape=ct.Shape((1, 3, height, width)), scale=1.0 / 255.0, color_layout=ct.colorlayout.RGB),
+            ct.ImageType(name="img1", shape=ct.Shape((1, 3, height, width)), scale=1.0 / 255.0, color_layout=ct.colorlayout.RGB),
             ct.TensorType(name="timestep", shape=(1, 1, 1, 1)),
         ],
-        outputs=[ct.TensorType(name="imgt")],
+        outputs=[ct.ImageType(name="imgt", color_layout=ct.colorlayout.RGB)],
         minimum_deployment_target=ct.target.iOS18,
         compute_precision=ct.precision.FLOAT16,
     )

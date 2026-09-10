@@ -17,45 +17,63 @@ final class PlaybackSessionTests: XCTestCase {
         let session = PlaybackSession()
         session.applyEnhancements(EnhancementSettings(anime4KEnabled: false, interpolation: .off))
         let buffer = try makeBuffer()
-        let out = session.enhance(VideoFrame(pixelBuffer: buffer, pts: 0, duration: 0.04))
+        let out = try session.enhance(VideoFrame(pixelBuffer: buffer, pts: 0, duration: 0.04))
         XCTAssertEqual(out.count, 1)
         XCTAssertTrue(out[0].pixelBuffer === buffer)
     }
 
-    func testSlowQualityFailureStaysOnFast() throws {
-        let session = PlaybackSession { mode in
-            switch mode {
-            case .quality:
-                return SleepThenThrowInterpolator(seconds: 0.1)
-            case .fast:
-                return FakeInterpolator()
-            case .off:
-                return PassthroughProcessor()
-            }
+    @MainActor
+    func testFailurePausesAndManualDisableResumes() async throws {
+        let session = PlaybackSession { mode -> FrameProcessor in
+            if mode == .quality { return ThrowingInterpolator() }
+            return PassthroughProcessor()
         }
+        defer { session.shutdown() }
         session.applyEnhancements(EnhancementSettings(anime4KEnabled: false, interpolation: .quality))
-        _ = session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 0, duration: 0.04))
-        _ = session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 0.04, duration: 0.04))
-        XCTAssertEqual(session.activeInterpolation, .fast)
+        session.open(PreviewSource(buffer: try makeBuffer()))
+        var failure: EnhancementFailure?
+        session.onEnhancementFailure = { failure = $0 }
+        session.play()
+        for _ in 0..<100 where failure == nil { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertNotNil(failure)
+        XCTAssertFalse(session.isPlaying)
+        XCTAssertEqual(session.enhancementStatus.interpolationPhase, .failed)
+        session.play()
+        XCTAssertFalse(session.isPlaying)
+        session.applyEnhancements(EnhancementSettings(anime4KEnabled: false, interpolation: .off))
+        session.retryEnhancements()
+        XCTAssertTrue(session.isPlaying)
+        XCTAssertNil(session.enhancementStatus.failure)
     }
 
-    func testQualityFailureUsesFastBox() throws {
-        let session = PlaybackSession { mode in
-            switch mode {
-            case .quality:
-                return ThrowingInterpolator()
-            case .fast:
-                return FakeInterpolator()
-            case .off:
-                return PassthroughProcessor()
-            }
+    @MainActor
+    func testRetryRebuildsFailedProcessorAndPreservesPosition() async throws {
+        var shouldFail = true
+        var creations = 0
+        let session = PlaybackSession { mode -> FrameProcessor in
+            guard mode == .quality else { return PassthroughProcessor() }
+            creations += 1
+            return shouldFail ? ThrowingInterpolator() : FakeInterpolator()
         }
+        defer { session.shutdown() }
         session.applyEnhancements(EnhancementSettings(anime4KEnabled: false, interpolation: .quality))
-        XCTAssertEqual(session.activeInterpolation, .quality)
-        _ = session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 0, duration: 0.04))
-        let out = session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 0.04, duration: 0.04))
-        XCTAssertEqual(session.activeInterpolation, .fast)
-        XCTAssertEqual(out.count, 1)
+        session.open(PreviewSource(buffer: try makeBuffer()))
+        session.seek(to: 4)
+        session.play()
+        for _ in 0..<100 where session.enhancementStatus.failure == nil { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<100 where session.isPlaying { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertNotNil(session.enhancementStatus.failure)
+        XCTAssertFalse(session.isPlaying)
+        let failedCreations = creations
+        let position = session.currentTime
+        shouldFail = false
+        session.retryEnhancements()
+        for _ in 0..<100 where session.queuedFramePTS.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertGreaterThan(creations, failedCreations)
+        XCTAssertNil(session.enhancementStatus.failure)
+        XCTAssertTrue(session.isPlaying)
+        XCTAssertEqual(session.dropBefore, position, accuracy: 0.01)
+        XCTAssertEqual(session.metrics.snapshot().settings.interpolation, .quality)
     }
 
     func testStaleEnhanceAfterBackwardSeekIsDiscarded() throws {
@@ -89,11 +107,53 @@ final class PlaybackSessionTests: XCTestCase {
         }
         session.applyEnhancements(EnhancementSettings(anime4KEnabled: false, interpolation: .fast))
         session.open(StubSource(duration: 10))
-        _ = session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 0, duration: 0.04))
+        _ = try session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 0, duration: 0.04))
         session.seek(to: 1)
-        let out = session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 1, duration: 0.04))
+        let out = try session.enhance(VideoFrame(pixelBuffer: try makeBuffer(), pts: 1, duration: 0.04))
         XCTAssertEqual(out.count, 1)
         XCTAssertEqual(out[0].pts, 1, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testPausedSeekDecodesTargetWithoutStartingPlayback() async throws {
+        let session = PlaybackSession()
+        defer { session.shutdown() }
+        session.applyEnhancements(EnhancementSettings(anime4KEnabled: false))
+        session.open(PreviewSource(buffer: try makeBuffer()))
+        session.pause()
+        session.seek(to: 5)
+        for _ in 0..<50 where session.queuedFramePTS.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(session.queuedFramePTS, [5])
+        XCTAssertEqual(session.currentTime, 5, accuracy: 0.001)
+        XCTAssertFalse(session.isPlaying)
+    }
+
+    @MainActor
+    func testEOFStopsAndPlayRestartsAtZero() async throws {
+        let session = PlaybackSession()
+        defer { session.shutdown() }
+        session.open(StubSource(duration: 1))
+        session.play()
+        for _ in 0..<50 where session.isPlaying {
+            try await Task.sleep(for: .milliseconds(10))
+            session.displayTick()
+        }
+        XCTAssertFalse(session.isPlaying)
+        XCTAssertEqual(session.currentTime, 1, accuracy: 0.001)
+        session.play()
+        XCTAssertTrue(session.isPlaying)
+        XCTAssertEqual(session.currentTime, 0, accuracy: 0.001)
+    }
+
+    func testSeekAudioDropsPrerollAndTrimsOverlappingPacket() {
+        let count = 480
+        let pcm = malloc(count * 2 * MemoryLayout<Float>.size)!.assumingMemoryBound(to: Float.self)
+        let packet = AudioBuffer(pcm: pcm, frameCount: count, sampleRate: 48000, pts: 4)
+        XCTAssertEqual(packet.framesToSkip(before: 3), 0)
+        XCTAssertEqual(packet.framesToSkip(before: 5), 480)
+        XCTAssertEqual(packet.framesToSkip(before: 4.005), 240)
     }
 
     private func makeBuffer() throws -> CVPixelBuffer {
@@ -125,4 +185,19 @@ private final class StubSource: VideoSource {
     func open(_ url: URL) async throws {}
     func seek(to time: Double) throws {}
     func pull() throws -> MediaSample { .eof }
+}
+
+private final class PreviewSource: VideoSource {
+    let duration = 10.0
+    let hasAudio = false
+    let sampleRate = 48000.0
+    private let buffer: CVPixelBuffer
+    private var time = 0.0
+    init(buffer: CVPixelBuffer) { self.buffer = buffer }
+    func open(_ url: URL) async throws {}
+    func seek(to time: Double) throws { self.time = time - 0.1 }
+    func pull() throws -> MediaSample {
+        defer { time += 0.1 }
+        return .video(VideoFrame(pixelBuffer: buffer, pts: time, duration: 0.1))
+    }
 }

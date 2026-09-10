@@ -15,7 +15,7 @@ enum FileOpening {
             }
         }
         return try url.bookmarkData(
-            options: .withSecurityScope,
+            options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )

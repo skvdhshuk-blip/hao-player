@@ -1,0 +1,12 @@
+[
+  {
+    "displayFPS" : 23.89963192928948,
+    "dropRate" : 0,
+    "maximumRefreshRate" : 60,
+    "name" : "anime-1080p24",
+    "passed" : true,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  }
+]

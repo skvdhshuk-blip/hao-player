@@ -8,16 +8,8 @@ enum PixelBufferIO {
     nonisolated(unsafe) private static var context: CIContext?
 
     static func bgra(_ source: CVPixelBuffer) throws -> CVPixelBuffer {
-        try convert(source, forceCopy: false)
-    }
-
-    static func isolatedBGRA(_ source: CVPixelBuffer) throws -> CVPixelBuffer {
-        try convert(source, forceCopy: true)
-    }
-
-    private static func convert(_ source: CVPixelBuffer, forceCopy: Bool) throws -> CVPixelBuffer {
         let format = CVPixelBufferGetPixelFormatType(source)
-        if !forceCopy, format == kCVPixelFormatType_32BGRA, CVPixelBufferGetIOSurface(source) != nil {
+        if format == kCVPixelFormatType_32BGRA, CVPixelBufferGetIOSurface(source) != nil {
             return source
         }
         let width = CVPixelBufferGetWidth(source)

@@ -1,0 +1,62 @@
+[
+  {
+    "displayFPS" : 23.89963192928948,
+    "dropRate" : 0,
+    "maximumRefreshRate" : 60,
+    "name" : "anime-1080p24",
+    "passed" : true,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  },
+  {
+    "displayFPS" : 29.891797780625712,
+    "dropRate" : 0,
+    "maximumRefreshRate" : 60,
+    "name" : "anime-1080p30",
+    "passed" : true,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  },
+  {
+    "displayFPS" : 47.634818251851584,
+    "dropRate" : 0.003381912000557841,
+    "maximumRefreshRate" : 60,
+    "name" : "fast-1080p24",
+    "passed" : true,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  },
+  {
+    "displayFPS" : 56.0213403651525,
+    "dropRate" : 0.06134301270417423,
+    "maximumRefreshRate" : 60,
+    "name" : "fast-1080p30",
+    "passed" : false,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  },
+  {
+    "displayFPS" : 27.76644946554258,
+    "dropRate" : 0.41088286249690625,
+    "maximumRefreshRate" : 60,
+    "name" : "both-1080p24",
+    "passed" : false,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  },
+  {
+    "displayFPS" : 43.92144326897481,
+    "dropRate" : 0.2615992379244649,
+    "maximumRefreshRate" : 60,
+    "name" : "both-1080p30",
+    "passed" : false,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  }
+]

@@ -1,0 +1,21 @@
+[
+  {
+    "displayFPS" : 20.94104214918978,
+    "dropRate" : 0.5482780933208714,
+    "maximumRefreshRate" : 120,
+    "name" : "quality-720p24",
+    "passed" : false,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  },
+  {
+    "displayFPS" : 16.373964861443305,
+    "dropRate" : 0.6445086705202312,
+    "maximumRefreshRate" : 120,
+    "name" : "quality-anime-720p24",
+    "required" : false,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  }
+]

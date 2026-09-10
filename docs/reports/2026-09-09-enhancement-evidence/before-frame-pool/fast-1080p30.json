@@ -1,0 +1,76 @@
+{
+  "consecutiveUnpresented" : 0,
+  "droppedDisplay" : 7,
+  "droppedLate" : 1382,
+  "droppedSource" : 404,
+  "epoch" : 1,
+  "firstProcessMS" : 388.5280833346769,
+  "generated" : 35008,
+  "generatedInterpolated" : 17475,
+  "gpu" : "Apple M5 Pro",
+  "lowPowerMode" : false,
+  "maxQueueDepth" : 14,
+  "measuredSeconds" : 600.0927464583074,
+  "memoryBytes" : 51539607552,
+  "operatingSystem" : "版本26.6.2（版号25G83）",
+  "outputHeight" : 1080,
+  "outputWidth" : 1920,
+  "presentationCallbacks" : 33741,
+  "presented" : 33618,
+  "presentedEnhanced" : 0,
+  "presentedInterpolated" : 16696,
+  "purpose" : "playback",
+  "queueDepth" : 11,
+  "schemaVersion" : 1,
+  "settings" : {
+    "anime4KEnabled" : false,
+    "anime4KPreset" : "fastA",
+    "interpolation" : "fast"
+  },
+  "sourceFPS" : 29.891093048695716,
+  "sourceHeight" : 1080,
+  "sourceWidth" : 1920,
+  "stages" : {
+    "anime4K" : {
+      "count" : 17533,
+      "maxMS" : 0.05658334703184664,
+      "meanMS" : 0.0018616300442098326,
+      "p95MS" : 0.1
+    },
+    "displayGPU" : {
+      "count" : 33618,
+      "maxMS" : 8.497833332512528,
+      "meanMS" : 0.10001744601184878,
+      "p95MS" : 0.2
+    },
+    "interpolation" : {
+      "count" : 17533,
+      "maxMS" : 190.94437500461936,
+      "meanMS" : 27.077102418944058,
+      "p95MS" : 43.8
+    },
+    "queueToScreen" : {
+      "count" : 33618,
+      "maxMS" : 314.1509166744072,
+      "meanMS" : 199.03952761411884,
+      "p95MS" : 249.29999999999998
+    },
+    "total" : {
+      "count" : 17533,
+      "maxMS" : 190.9460833412595,
+      "meanMS" : 27.07897632345448,
+      "p95MS" : 43.8
+    }
+  },
+  "staleCallbacks" : 0,
+  "status" : {
+    "anime4KEnabled" : false,
+    "anime4KPhase" : "off",
+    "interpolation" : "fast",
+    "interpolationPhase" : "slow",
+    "performanceLimited" : true
+  },
+  "submitted" : 33744,
+  "unpresentedCallbacks" : 7,
+  "warmupSeconds" : 2
+}

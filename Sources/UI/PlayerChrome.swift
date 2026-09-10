@@ -6,78 +6,98 @@ struct PlayerChrome: View {
     @State private var isScrubbing = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                engine.togglePlay()
-            } label: {
-                Image(systemName: engine.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 28, height: 28)
+        VStack(spacing: 6) {
+            if let notice = engine.enhancementNotice {
+                Text(notice)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(notice)
             }
-            .buttonStyle(.plain)
-            .focusable(false)
-            .help("空格暂停或继续")
-            .accessibilityLabel(engine.isPlaying ? "暂停" : "播放")
-
-            Text(Self.clock(isScrubbing ? sliderTime : engine.currentTime))
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 48, alignment: .trailing)
-
-            Slider(
-                value: $sliderTime,
-                in: 0...max(engine.duration, 0.1)
-            ) { editing in
-                if editing {
-                    isScrubbing = true
-                    engine.isScrubbing = true
-                } else if isScrubbing {
-                    engine.seek(to: sliderTime)
-                    isScrubbing = false
-                    engine.isScrubbing = false
+            if engine.motionComparing {
+                HStack {
+                    Text(engine.comparisonMessage)
+                    Button("结束对比") { engine.endComparison() }
                 }
             }
-            .onAppear {
-                sliderTime = engine.currentTime
-            }
-            .onChange(of: engine.currentTime) { _, time in
-                if !isScrubbing {
-                    sliderTime = time
+            HStack(spacing: 12) {
+                Button {
+                    engine.togglePlay()
+                } label: {
+                    Image(systemName: engine.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: 28, height: 28)
                 }
-            }
-            .accessibilityLabel("播放进度")
+                .buttonStyle(.plain)
+                .focusable(false)
+                .help("空格暂停或继续")
+                .accessibilityLabel(engine.isPlaying ? "暂停" : "播放")
 
-            Text(Self.clock(engine.duration))
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 48, alignment: .leading)
+                Text(Self.clock(isScrubbing ? sliderTime : engine.currentTime))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 48, alignment: .trailing)
 
-            Toggle("Anime4K", isOn: $engine.settings.anime4KEnabled)
-                .toggleStyle(.switch)
+                Slider(
+                    value: $sliderTime,
+                    in: 0...max(engine.duration, 0.1)
+                ) { editing in
+                    if editing {
+                        isScrubbing = true
+                        engine.isScrubbing = true
+                    } else if isScrubbing {
+                        engine.seek(to: sliderTime)
+                        isScrubbing = false
+                        engine.isScrubbing = false
+                    }
+                }
+                .onAppear {
+                    sliderTime = engine.currentTime
+                }
+                .onChange(of: engine.currentTime) { _, time in
+                    if !isScrubbing {
+                        sliderTime = time
+                    }
+                }
+                .accessibilityLabel("播放进度")
+
+                Text(Self.clock(engine.duration))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 48, alignment: .leading)
+
+                Toggle("Anime4K", isOn: $engine.settings.anime4KEnabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .help("增强画面清晰度；关闭后显示原始画面。")
+                    .accessibilityLabel("Anime4K 超分")
+
+                Picker("流畅档", selection: $engine.settings.interpolation) {
+                    Text("关").tag(InterpolationMode.off)
+                    Text("快").tag(InterpolationMode.fast)
+                    Text("高质量").tag(InterpolationMode.quality)
+                }
+                .pickerStyle(.segmented)
                 .controlSize(.mini)
-                .help("官方 Fast A 超分。关闭则源分辨率直通。")
-                .accessibilityLabel("Anime4K 超分")
+                .help("让运动更连贯；高质量需要更多性能；性能不足时保持所选效果并提示掉帧。")
+                .accessibilityLabel("流畅档")
 
-            Picker("流畅档", selection: $engine.settings.interpolation) {
-                Text("关").tag(InterpolationMode.off)
-                Text("快").tag(InterpolationMode.fast)
-                Text("高质量").tag(InterpolationMode.quality)
-            }
-            .pickerStyle(.segmented)
-            .controlSize(.mini)
-            .help("快是系统低延迟补帧，高质量是 IFRNet。")
-            .accessibilityLabel("流畅档")
+                Button {
+                    engine.showEnhancementDetails = true
+                } label: {
+                    Image(systemName: "waveform.path.ecg")
+                }.accessibilityLabel("增强效果与性能")
 
-            Button {
-                engine.toggleFullScreen()
-            } label: {
-                Image(systemName: engine.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .help("全屏")
-            .accessibilityLabel(engine.isFullScreen ? "退出全屏" : "全屏")
+                Button {
+                    engine.toggleFullScreen()
+                } label: {
+                    Image(systemName: engine.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .help("全屏")
+                .accessibilityLabel(engine.isFullScreen ? "退出全屏" : "全屏")
+            }.disabled(engine.motionComparing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
