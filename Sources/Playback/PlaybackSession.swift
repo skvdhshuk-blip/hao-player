@@ -363,10 +363,13 @@ final class PlaybackSession: @unchecked Sendable {
                 Thread.sleep(forTimeInterval: Timing.decodeIdle)
                 continue
             }
+            var enhancementStarted: Double?
+            var poolBodyEnded = 0.0
             do {
                 // This GCD task lives for the entire playback session. Drain Objective-C
                 // conversion/model temporaries per pull; queued frames remain strongly owned.
                 try autoreleasepool {
+                    defer { poolBodyEnded = CACurrentMediaTime() }
                     configureEnhancements()
                     if let seekTo {
                         catchingUp = false
@@ -390,12 +393,18 @@ final class PlaybackSession: @unchecked Sendable {
                                 return
                             }
                             catchingUp = false
+                            enhancementStarted = CACurrentMediaTime()
                             let outgoing = try enhance(input)
                             publishEnhanced(outgoing, epoch: epoch)
                         }
                     case .audio(let packet):
                         scheduleAudio(packet, epoch: epoch, target: target)
                     }
+                }
+                if let enhancementStarted {
+                    let ended = CACurrentMediaTime()
+                    metrics.completedCycle(epoch: epoch, cleanup: ended - poolBodyEnded,
+                                           total: ended - enhancementStarted)
                 }
             } catch {
                 fail(error, epoch: epoch)

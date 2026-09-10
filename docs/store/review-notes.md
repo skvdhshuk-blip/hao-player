@@ -7,7 +7,7 @@ How to test
 2. Drop or Open a local mp4 or mkv.
 3. Play / pause with the bottom button or Space. Drag the slider to seek.
 4. Anime4K toggle is on by default. Turn it off to see source-resolution output.
-5. 流畅档 (smoothness) is a three-state control: 关 / 快 / 高质量. Default is 关. “快” uses system frame rate conversion. “高质量” uses IFRNet-S at source resolution. Performance warnings preserve the selection; processing failures pause playback until the user retries or disables the failed feature. The sustained 720p24 to 48fps quality-mode target is not yet met.
+5. 流畅档 (smoothness) offers 关 / 快. Default is 关. “快” uses system frame rate conversion. Performance warnings preserve the selection; processing failures pause playback until the user retries or disables the failed feature.
 6. Close the window, then reopen from 窗口 → 播放器 or ⌘0.
 
 Why FFmpeg is in the bundle

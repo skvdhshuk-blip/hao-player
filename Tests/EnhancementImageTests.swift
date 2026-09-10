@@ -7,6 +7,25 @@ import XCTest
 @testable import HaoPlayer
 
 final class EnhancementImageTests: XCTestCase {
+    func testQualityPoolDoesNotOverwriteRetainedOutput() throws {
+        let processor = IFRNetProcessor()
+        _ = try processor.process(VideoFrame(pixelBuffer: pattern(offset: 0), pts: 0, duration: 1 / 24))
+        let held = try processor.process(VideoFrame(pixelBuffer: pattern(offset: 8), pts: 1 / 24, duration: 1 / 24))[0].pixelBuffer
+        func bytes() -> Data {
+            CVPixelBufferLockBaseAddress(held, .readOnly)
+            defer { CVPixelBufferUnlockBaseAddress(held, .readOnly) }
+            return Data(bytes: CVPixelBufferGetBaseAddress(held)!, count: CVPixelBufferGetBytesPerRow(held) * CVPixelBufferGetHeight(held))
+        }
+        let original = bytes()
+        for index in 2..<12 {
+            try autoreleasepool {
+                let next = try processor.process(VideoFrame(pixelBuffer: pattern(offset: index * 8), pts: Double(index) / 24, duration: 1 / 24))
+                XCTAssertFalse(held === next[0].pixelBuffer)
+            }
+        }
+        XCTAssertEqual(bytes(), original)
+    }
+
     func testStaticFramePreservesColorAndPaddingOrientation() throws {
         let processor = IFRNetProcessor()
         let input = try pattern(offset: 0)

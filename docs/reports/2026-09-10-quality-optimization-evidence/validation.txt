@@ -1,0 +1,5 @@
+Executed 61 tests, with 0 failures (0 unexpected) in 8.547 (8.575) seconds
+Executed 61 tests, with 0 failures (0 unexpected) in 8.547 (8.576) seconds
+** TEST SUCCEEDED **
+Synthetic image equivalence: MAE=0, maximum=0.
+Signed Release sandbox app verified.

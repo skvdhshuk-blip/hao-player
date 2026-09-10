@@ -169,6 +169,14 @@ final class EnhancementMetrics: @unchecked Sendable {
         }
     }
 
+    func completedCycle(epoch: Int, cleanup: Double, total: Double, now: Double = CACurrentMediaTime()) {
+        lock.withLock {
+            guard epoch == report.epoch, report.status.failure == nil, measuring(now) else { return }
+            record("temporaryCleanup", seconds: cleanup)
+            record("processingWithCleanup", seconds: total)
+        }
+    }
+
     func submitted(_ frame: VideoFrame) {
         lock.withLock { if frame.trace.epoch == report.epoch { report.submitted += 1 } }
     }

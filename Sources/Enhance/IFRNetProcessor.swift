@@ -14,6 +14,8 @@ final class IFRNetProcessor: FrameProcessor {
     private var loadFailed = false
     private var warmedWidth = 0
     private var warmedHeight = 0
+    private let colorSpace = CGColorSpaceCreateDeviceRGB()
+    private var pools: [Int: CVPixelBufferPool] = [:]
 
     func process(_ frame: VideoFrame) throws -> [VideoFrame] {
         let width = CVPixelBufferGetWidth(frame.pixelBuffer)
@@ -86,7 +88,7 @@ final class IFRNetProcessor: FrameProcessor {
         // Padding is on the bottom/right in the model's top-left image coordinates.
         let padding = CVPixelBufferGetHeight(pred) - height
         let image = CIImage(cvPixelBuffer: pred).transformed(by: CGAffineTransform(translationX: 0, y: -CGFloat(padding)))
-        context.render(image, to: buffer, bounds: CGRect(x: 0, y: 0, width: width, height: height), colorSpace: CGColorSpaceCreateDeviceRGB())
+        context.render(image, to: buffer, bounds: CGRect(x: 0, y: 0, width: width, height: height), colorSpace: colorSpace)
         lastTimings["outputConversion"] = CACurrentMediaTime() - outputStart
         previousImage = right
         return VideoFrame(
@@ -103,14 +105,26 @@ final class IFRNetProcessor: FrameProcessor {
         let bounds = CGRect(x: 0, y: 0, width: paddedW, height: paddedH)
         let image = CIImage(cvPixelBuffer: source).transformed(by: CGAffineTransform(translationX: 0, y: CGFloat(paddedH - height)))
         let black = CIImage(color: .black).cropped(to: bounds)
-        context.render(image.composited(over: black), to: buffer, bounds: bounds, colorSpace: CGColorSpaceCreateDeviceRGB())
+        context.render(image.composited(over: black), to: buffer, bounds: bounds, colorSpace: colorSpace)
         return buffer
     }
 
     private func makeBuffer(width: Int, height: Int) throws -> CVPixelBuffer {
+        let key = width << 16 | height
+        if pools[key] == nil {
+            // Only the native and padded size are needed. Retained outputs remain
+            // owned by the display queue even when an old size's pool is removed.
+            if pools.count >= 2 { pools.removeAll() }
+            var pool: CVPixelBufferPool?
+            let attrs: [CFString: Any] = [kCVPixelBufferWidthKey: width, kCVPixelBufferHeightKey: height,
+                kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary, kCVPixelBufferMetalCompatibilityKey: true]
+            guard CVPixelBufferPoolCreate(nil, nil, attrs as CFDictionary, &pool) == kCVReturnSuccess,
+                  let pool else { throw InterpolationError.unavailable }
+            pools[key] = pool
+        }
         var buffer: CVPixelBuffer?
-        let attrs: [CFString: Any] = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary, kCVPixelBufferMetalCompatibilityKey: true]
-        guard CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, attrs as CFDictionary, &buffer) == kCVReturnSuccess,
+        guard let pool = pools[key], CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer) == kCVReturnSuccess,
               let buffer else { throw InterpolationError.unavailable }
         return buffer
     }

@@ -1,0 +1,129 @@
+{
+  "summary": {
+    "Fragment": {
+      "count": 300,
+      "sumDurationMS": 24.669249999999984,
+      "meanLatencyMS": 0.21545346999999998,
+      "maxLatencyMS": 2.424917
+    },
+    "Compute": {
+      "count": 6423,
+      "sumDurationMS": 9375.11284100004,
+      "meanLatencyMS": 12.735741707613247,
+      "maxLatencyMS": 46.189583
+    },
+    "Vertex": {
+      "count": 293,
+      "sumDurationMS": 2.929375,
+      "meanLatencyMS": 0.20144965529010248,
+      "maxLatencyMS": 2.418833
+    }
+  },
+  "longest": [
+    {
+      "channel": "Compute",
+      "start": 7.25995075,
+      "durationMS": 17.390125,
+      "latencyMS": 26.752292,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cd116a"
+    },
+    {
+      "channel": "Compute",
+      "start": 5.973918375,
+      "durationMS": 17.330791,
+      "latencyMS": 26.077459,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53ccdb00"
+    },
+    {
+      "channel": "Compute",
+      "start": 0.866060708,
+      "durationMS": 17.275417,
+      "latencyMS": 26.208542,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cc2582"
+    },
+    {
+      "channel": "Compute",
+      "start": 7.842827458,
+      "durationMS": 17.173042,
+      "latencyMS": 25.215417,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cd287e"
+    },
+    {
+      "channel": "Compute",
+      "start": 10.916381041,
+      "durationMS": 16.826167,
+      "latencyMS": 25.480916,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cd911a"
+    },
+    {
+      "channel": "Compute",
+      "start": 8.515934916,
+      "durationMS": 16.801042,
+      "latencyMS": 25.581833,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cd3f19"
+    },
+    {
+      "channel": "Compute",
+      "start": 3.497961166,
+      "durationMS": 16.799584,
+      "latencyMS": 25.687125,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cc86f0"
+    },
+    {
+      "channel": "Compute",
+      "start": 0.5015285,
+      "durationMS": 16.793791,
+      "latencyMS": 25.682542,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cc1968"
+    },
+    {
+      "channel": "Compute",
+      "start": 4.225373208,
+      "durationMS": 16.778958,
+      "latencyMS": 25.460708,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cca100"
+    },
+    {
+      "channel": "Compute",
+      "start": 0.968974458,
+      "durationMS": 16.745125,
+      "latencyMS": 25.426917,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cc290b"
+    },
+    {
+      "channel": "Compute",
+      "start": 1.172278583,
+      "durationMS": 16.738458,
+      "latencyMS": 25.580333,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cc2f31"
+    },
+    {
+      "channel": "Compute",
+      "start": 5.056875208,
+      "durationMS": 16.715833,
+      "latencyMS": 25.503833,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53ccbbad"
+    },
+    {
+      "channel": "Compute",
+      "start": 8.415971708,
+      "durationMS": 16.623375,
+      "latencyMS": 25.576667,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cd3c11"
+    },
+    {
+      "channel": "Compute",
+      "start": 9.205646666,
+      "durationMS": 16.615292,
+      "latencyMS": 25.751958,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cd56f2"
+    },
+    {
+      "channel": "Compute",
+      "start": 5.615005625,
+      "durationMS": 16.568166,
+      "latencyMS": 25.859917,
+      "label": "IFRNet_S_main_default_function__Op0_MpsGraphInference+++++++++++++++++++++++:Compute Command 0     ( HaoPlayer (4853) )  0x53cccd44"
+    }
+  ]
+}

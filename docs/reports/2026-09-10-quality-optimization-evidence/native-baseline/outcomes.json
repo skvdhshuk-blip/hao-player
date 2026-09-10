@@ -1,0 +1,12 @@
+[
+  {
+    "displayFPS" : 26.49909167777798,
+    "dropRate" : 0.4342105263157895,
+    "maximumRefreshRate" : 120,
+    "name" : "quality-720p24",
+    "passed" : false,
+    "required" : true,
+    "scale" : 2,
+    "screen" : "内建视网膜显示器"
+  }
+]

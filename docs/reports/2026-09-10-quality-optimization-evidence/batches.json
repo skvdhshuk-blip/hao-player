@@ -1,0 +1,22 @@
+[
+  {
+    "batch": 1,
+    "perFrameMeanMS": 49.56922233333335,
+    "perFrameP95MS": 51.098468900000206
+  },
+  {
+    "batch": 2,
+    "perFrameMeanMS": 51.13914587500009,
+    "perFrameP95MS": 55.08922820000013
+  },
+  {
+    "batch": 3,
+    "perFrameMeanMS": 51.52241205555549,
+    "perFrameP95MS": 52.66617499999991
+  },
+  {
+    "batch": 1,
+    "perFrameMeanMS": 53.01243766666659,
+    "perFrameP95MS": 54.71100245000069
+  }
+]

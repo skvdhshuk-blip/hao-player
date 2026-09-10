@@ -74,11 +74,10 @@ struct PlayerChrome: View {
                 Picker("流畅档", selection: $engine.settings.interpolation) {
                     Text("关").tag(InterpolationMode.off)
                     Text("快").tag(InterpolationMode.fast)
-                    Text("高质量").tag(InterpolationMode.quality)
                 }
                 .pickerStyle(.segmented)
                 .controlSize(.mini)
-                .help("让运动更连贯；高质量需要更多性能；性能不足时保持所选效果并提示掉帧。")
+                .help("使用系统补帧让运动更连贯；性能不足时保持所选效果并提示掉帧。")
                 .accessibilityLabel("流畅档")
 
                 Button {

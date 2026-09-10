@@ -1,0 +1,7 @@
+{
+  "Sources/Enhance/IFRNetProcessor.swift": "03c99cf1b4672151640e4bd96aa051a7dcd957c4df9abbf3229592bd18b9586c",
+  "Sources/Playback/PlaybackSession.swift": "9625c166f17b0f19f0d1422f6dc946836e10da26b86c38625edc4a6158431721",
+  "Sources/Playback/EnhancementMetrics.swift": "7d6f226aa3510e0d5e1044fa87c6bad2f01cf8377c27bbd47e96baba3e384755",
+  "Sources/App/EnhancementAcceptance.swift": "a364ff521773bc3cfc5f11a47966d4f81df5c183b79f979e411fa6e2c1c85509",
+  "Sources/UI/EnhancementDetails.swift": "76570ce7a00953b96dd293c7042a164eec27e03ea304fd23f4e8b24b991cbea7"
+}

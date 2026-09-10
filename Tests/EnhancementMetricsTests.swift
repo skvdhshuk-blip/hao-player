@@ -57,6 +57,21 @@ final class EnhancementMetricsTests: XCTestCase {
         XCTAssertEqual(metrics.snapshot().presented, 0)
     }
 
+    func testCleanupTimingIncludesOnlyCurrentPlayingSession() throws {
+        let metrics = EnhancementMetrics()
+        metrics.reset(epoch: 1, settings: EnhancementSettings())
+        metrics.setPlaying(true, now: 1)
+        metrics.displayed(try frame(epoch: 1), at: 1)
+        metrics.completedCycle(epoch: 1, cleanup: 0.002, total: 0.045, now: 4)
+        metrics.completedCycle(epoch: 0, cleanup: 1, total: 1, now: 5)
+        metrics.setPlaying(false, now: 6)
+        metrics.completedCycle(epoch: 1, cleanup: 1, total: 1, now: 7)
+        let report = metrics.snapshot(now: 7)
+        XCTAssertEqual(report.stages["temporaryCleanup"]?.count, 1)
+        XCTAssertEqual(try XCTUnwrap(report.stages["temporaryCleanup"]).meanMS, 2, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(report.stages["processingWithCleanup"]).meanMS, 45, accuracy: 0.001)
+    }
+
     private func frame(epoch: Int) throws -> VideoFrame {
         var buffer: CVPixelBuffer?
         let status = CVPixelBufferCreate(nil, 16, 16, kCVPixelFormatType_32BGRA, nil, &buffer)

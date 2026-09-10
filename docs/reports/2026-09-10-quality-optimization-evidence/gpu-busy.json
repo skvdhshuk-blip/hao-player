@@ -1,0 +1,7 @@
+{
+  "captureSpanSeconds": 10.714009041999999,
+  "computeExecutionUnionSeconds": 9.374779571999941,
+  "computeBusyFractionWithinSpan": 0.8750020216755331,
+  "intervalCount": 6423,
+  "note": "Trace-instrumented, process-specific Compute channel interval union; not theoretical GPU utilization or uninstrumented fps."
+}

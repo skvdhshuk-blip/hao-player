@@ -1,0 +1,13 @@
+{
+  "baseCommit": "c1c0c49249c241f94934d61045f1a5cabf5948f3",
+  "modelSHA256": "bcc60ba978f2a2d7d5531a4641d71e7f752675fd3cc6e97a5d7fb18cbf56cd79",
+  "device": "Apple M5 Pro, 48 GB",
+  "refreshRateHz": 60,
+  "windowPoints": [
+    960,
+    540
+  ],
+  "backingScale": 2,
+  "configuration": "Release, Apple Development, sandbox enabled",
+  "sampling": "Metal trace is separate from A/B performance runs"
+}

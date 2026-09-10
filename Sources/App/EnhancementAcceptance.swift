@@ -78,7 +78,7 @@ final class EnhancementAcceptance {
                 let budget = (mode == .off ? 1000 : 2000) / target
                 let passed = report.status.failure == nil && report.measuredSeconds >= 599.5
                     && report.displayFPS >= target * 0.98 && report.dropRate < 0.01
-                    && (report.stages["total"]?.p95MS ?? .infinity) < budget
+                    && (report.stages["processingWithCleanup"]?.p95MS ?? .infinity) < budget
                     && (!anime || report.presentedEnhanced == report.presented)
                     && (mode == .off || report.interpolatedShare > 0.45)
                 outcomes.append(Outcome(name: name, required: required, passed: required ? passed : nil,

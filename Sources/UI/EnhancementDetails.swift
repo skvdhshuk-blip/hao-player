@@ -21,7 +21,7 @@ struct EnhancementDetails: View {
                 row("测量时长", "\(number(report.measuredSeconds)) 秒（首次处理后预热 2 秒，暂停不计时）")
                 row("首次处理", "\(number(report.firstProcessMS ?? 0)) ms")
                 row("队列", "当前 \(report.queueDepth) · 峰值 \(report.maxQueueDepth)")
-                ForEach(["inputConversion", "model", "vtProcessing", "outputConversion", "interpolation", "anime4K", "total", "queueToScreen", "displayGPU"], id: \.self) { stage in
+                ForEach(["inputConversion", "model", "vtProcessing", "outputConversion", "interpolation", "anime4K", "total", "temporaryCleanup", "processingWithCleanup", "queueToScreen", "displayGPU"], id: \.self) { stage in
                     if let timing = report.stages[stage] {
                         row(stageTitle(stage), "平均 \(number(timing.meanMS)) ms · P95 \(number(timing.p95MS)) ms")
                     }
@@ -54,7 +54,8 @@ struct EnhancementDetails: View {
     }
     private func stageTitle(_ value: String) -> String {
         ["inputConversion": "输入转换", "model": "模型计算", "vtProcessing": "系统插帧处理", "outputConversion": "模型输出转换",
-         "interpolation": "插帧合计", "anime4K": "Anime4K", "total": "完整增强", "queueToScreen": "入队到显示", "displayGPU": "显示 GPU"][value] ?? value
+         "interpolation": "插帧合计", "anime4K": "Anime4K", "total": "增强计算", "temporaryCleanup": "临时对象释放",
+         "processingWithCleanup": "增强与释放合计", "queueToScreen": "入队到显示", "displayGPU": "显示 GPU"][value] ?? value
     }
 }
 
